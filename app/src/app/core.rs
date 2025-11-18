@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use chrono::{DateTime, Local};
 
-use super::panel::Panel;
+use self::panel::Panel;
 use super::types::{Entry, Mode, Side, SortKey};
 
 pub struct App {
@@ -21,13 +21,16 @@ mod core {
     // submodules live in `app/src/app/core/`
 }
 
-mod fs_ops;
+pub mod panel;
+pub mod path;
 mod navigation;
 mod preview;
 
 impl App {
     // Helper: return mutable reference to the currently active panel
-    fn active_panel_mut(&mut self) -> &mut Panel {
+    // Made `pub(crate)` so other internal modules (for example `fs_op` helpers)
+    // can operate on `App` without exposing this helper publicly.
+    pub(crate) fn active_panel_mut(&mut self) -> &mut Panel {
         match self.active {
             Side::Left => &mut self.left,
             Side::Right => &mut self.right,
