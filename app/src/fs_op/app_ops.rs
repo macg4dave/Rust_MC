@@ -4,8 +4,8 @@ use std::path::PathBuf;
 
 impl crate::app::core::App {
     pub fn enter(&mut self) -> io::Result<()> {
+        let sel = self.selected_index();
         let panel = self.active_panel_mut();
-        let sel = panel.selected;
         if let Some(e) = panel.entries.get(sel) {
             if e.is_dir {
                 panel.cwd = e.path.clone();
@@ -25,8 +25,8 @@ impl crate::app::core::App {
     }
 
     pub fn delete_selected(&mut self) -> io::Result<()> {
+        let sel = self.selected_index();
         let panel = self.active_panel_mut();
-        let sel = panel.selected;
         if let Some(e) = panel.entries.get(sel) {
             if e.is_dir {
                 fs::remove_dir_all(&e.path)?;
@@ -39,18 +39,19 @@ impl crate::app::core::App {
     }
 
     pub fn copy_selected_to(&mut self, dst: PathBuf) -> io::Result<()> {
+        let sel = self.selected_index();
         let panel = self.active_panel_mut();
-        let sel = panel.selected;
         if let Some(src) = panel.entries.get(sel) {
             let src_path = src.path.clone();
             let src_name = src.name.clone();
             let is_dir = src.is_dir;
-            let target = crate::app::core::App::resolve_target(&dst, &src_name);
+            let target = crate::fs_op::helpers::resolve_target(&dst, &src_name);
             if is_dir {
                 self.copy_recursive(&src_path, &target)?;
             } else {
-                crate::app::core::App::ensure_parent_exists(&target)?;
-                fs::copy(&src_path, &target)?;
+                crate::fs_op::helpers::ensure_parent_exists(&target)?;
+                // Use atomic copy for files
+                crate::fs_op::helpers::atomic_copy_file(&src_path, &target)?;
             }
             self.refresh_active()?;
         }
@@ -58,26 +59,28 @@ impl crate::app::core::App {
     }
 
     pub fn move_selected_to(&mut self, dst: PathBuf) -> io::Result<()> {
+        let sel = self.selected_index();
         let panel = self.active_panel_mut();
-        let sel = panel.selected;
         if let Some(src) = panel.entries.get(sel) {
             let src_path = src.path.clone();
             let src_name = src.name.clone();
-            let target = crate::app::core::App::resolve_target(&dst, &src_name);
-            crate::app::core::App::ensure_parent_exists(&target)?;
-            fs::rename(&src_path, &target)?;
+            let target = crate::fs_op::helpers::resolve_target(&dst, &src_name);
+            crate::fs_op::helpers::ensure_parent_exists(&target)?;
+            // Prefer atomic rename; fall back to copy+remove if necessary
+            crate::fs_op::helpers::atomic_rename_or_copy(&src_path, &target)?;
             self.refresh_active()?;
         }
         Ok(())
     }
 
     pub fn rename_selected_to(&mut self, name: String) -> io::Result<()> {
+        let sel = self.selected_index();
         let panel = self.active_panel_mut();
-        let sel = panel.selected;
         if let Some(src) = panel.entries.get(sel) {
             let src_path = src.path.clone();
             let target = panel.cwd.join(name);
-            fs::rename(&src_path, &target)?;
+            // Prefer atomic rename; fall back to copy+remove when needed
+            crate::fs_op::helpers::atomic_rename_or_copy(&src_path, &target)?;
             self.refresh_active()?;
         }
         Ok(())
@@ -86,10 +89,11 @@ impl crate::app::core::App {
     pub fn new_file(&mut self, name: String) -> io::Result<()> {
         let panel = self.active_panel_mut();
         let p = panel.cwd.join(name);
+        // Create parent and write an empty file atomically to avoid races.
         if let Some(parent) = p.parent() {
             fs::create_dir_all(parent)?;
         }
-        fs::File::create(p)?;
+        crate::fs_op::helpers::atomic_write(&p, &[])?;
         self.refresh_active()?;
         Ok(())
     }
@@ -103,21 +107,8 @@ impl crate::app::core::App {
     }
 
     fn copy_recursive(&self, src: &PathBuf, dst: &PathBuf) -> io::Result<()> {
-        fs::create_dir_all(dst)?;
-        for entry in fs::read_dir(src)? {
-            let entry = entry?;
-            let file_name = entry.file_name();
-            let child_src = entry.path();
-            let child_dst = dst.join(file_name);
-            if child_src.is_dir() {
-                self.copy_recursive(&child_src, &child_dst)?;
-            } else {
-                if let Some(p) = child_dst.parent() {
-                    fs::create_dir_all(p)?;
-                }
-                fs::copy(&child_src, &child_dst)?;
-            }
-        }
-        Ok(())
+        // Delegate to shared helper in `fs_op::copy` so the logic is
+        // reusable and unit-testable without constructing a full `App`.
+        crate::fs_op::copy::copy_recursive(src.as_path(), dst.as_path())
     }
 }

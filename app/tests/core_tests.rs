@@ -7,12 +7,12 @@ fn resolve_target_behaviour() {
     let temp = assert_fs::TempDir::new().unwrap();
     let dir_path = temp.path().to_path_buf();
     // existing directory should join
-    let t = App::resolve_target(&dir_path, "file.txt");
+    let t = app::fs_op::helpers::resolve_target(&dir_path, "file.txt");
     assert_eq!(t, dir_path.join("file.txt"));
 
     // trailing slash should join even if path doesn't exist
     let dst = PathBuf::from("some/where/");
-    let t2 = App::resolve_target(&dst, "x");
+    let t2 = app::fs_op::helpers::resolve_target(&dst, "x");
     assert_eq!(t2, dst.join("x"));
 
     temp.close().unwrap();

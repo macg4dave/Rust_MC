@@ -1,4 +1,3 @@
-use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
 use std::fmt;
 
@@ -39,8 +38,10 @@ pub fn create_file<P: AsRef<Path>>(path: P) -> Result<(), CreateError> {
     if let Some(parent) = p.parent() {
         std::fs::create_dir_all(parent).map_err(CreateError::Io)?;
     }
-    match OpenOptions::new().write(true).create_new(true).open(p) {
-        Ok(_) => Ok(()),
+    // Create an empty file atomically by writing zero bytes via the
+    // shared helper. This avoids races and leaves no partial file.
+    match crate::fs_op::helpers::atomic_write(&p.to_path_buf(), &[]) {
+        Ok(()) => Ok(()),
         Err(e) => {
             if e.kind() == std::io::ErrorKind::AlreadyExists {
                 Err(CreateError::AlreadyExists(p.to_path_buf()))
@@ -70,5 +71,17 @@ mod tests {
         create_dir_all(&dir).unwrap();
         create_file(&file).unwrap();
         assert!(file.exists());
+        // Ensure no leftover atomic temp files are present after success.
+        let mut tmp_leftovers = 0;
+        for e in std::fs::read_dir(dir).unwrap() {
+            if let Ok(e) = e {
+                if let Some(name) = e.file_name().to_str() {
+                    if name.starts_with(".tmp_atomic_write.") {
+                        tmp_leftovers += 1;
+                    }
+                }
+            }
+        }
+        assert_eq!(tmp_leftovers, 0, "found leftover atomic temp files");
     }
 }

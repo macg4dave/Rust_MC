@@ -1,7 +1,6 @@
 use std::cmp::min;
 use std::fs;
 use std::io;
-use std::path::PathBuf;
 
 use chrono::{DateTime, Local};
 
@@ -46,21 +45,8 @@ impl App {
     /// (exists or ends with a separator) then target becomes `dst.join(src_name)`.
     ///
     /// This is exposed as a public helper for tests.
-    pub fn resolve_target(dst: &PathBuf, src_name: &str) -> PathBuf {
-        if dst.is_dir() || dst.to_string_lossy().ends_with('/') {
-            dst.join(src_name)
-        } else {
-            dst.clone()
-        }
-    }
-
-    /// Ensure parent directory exists for a path. Public for testing.
-    pub fn ensure_parent_exists(p: &PathBuf) -> io::Result<()> {
-        if let Some(parent) = p.parent() {
-            fs::create_dir_all(parent)?;
-        }
-        Ok(())
-    }
+    // `resolve_target` and `ensure_parent_exists` moved to `fs_op::helpers` to
+    // keep filesystem helpers in the `fs_op` module where they belong.
 
     /// Maximum bytes to read for a file preview (100 KiB)
     ///
@@ -86,6 +72,20 @@ impl App {
         self.refresh_panel(Side::Right)?;
         Ok(())
     }
+
+    /// Return the currently selected index for the active panel.
+    ///
+    /// This is a small helper to avoid repeating the `match self.active` logic
+    /// across methods that need to consult the selected entry index. The
+    /// selection is stored on the panel and is clamped by `refresh_panel`.
+    pub(crate) fn selected_index(&self) -> usize {
+        match self.active {
+            Side::Left => self.left.selected,
+            Side::Right => self.right.selected,
+        }
+    }
+
+    // `selected_entry` removed: not used and was producing a dead-code warning.
 
     fn refresh_panel(&mut self, side: Side) -> io::Result<()> {
         let panel = match side {
