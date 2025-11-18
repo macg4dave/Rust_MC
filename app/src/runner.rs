@@ -1,18 +1,18 @@
 use crate::ui;
 use crate::app::{Action, App, InputKind, Mode, Side, SortKey};
 use crate::app::path;
+use crate::ui::colors;
 
 use std::io;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use crossterm::event::{self, Event, KeyCode, MouseButton, MouseEventKind};
+use crate::input::{poll, read_event, InputEvent, KeyCode};
 use crossterm::execute;
 use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
 use tui::backend::CrosstermBackend;
-use tui::layout::{Constraint, Direction, Layout};
 use tui::Terminal;
 
 pub fn run_app() -> anyhow::Result<()> {
@@ -27,10 +27,10 @@ pub fn run_app() -> anyhow::Result<()> {
     loop {
         terminal.draw(|f| ui::ui(f, &app))?;
 
-        if event::poll(Duration::from_millis(100))? {
-            let ev = event::read()?;
-            match ev {
-                Event::Key(key) => {
+        if poll(Duration::from_millis(100))? {
+            let iev = read_event()?;
+            match iev {
+                InputEvent::Key(key) => {
                     let code = key.code;
                     match &mut app.mode {
                         Mode::Normal => {
@@ -181,6 +181,10 @@ pub fn run_app() -> anyhow::Result<()> {
                                     }
                                 },
                                 KeyCode::Char('p') => { /* toggle preview behavior */ }
+                                KeyCode::Char('t') => {
+                                    // Toggle theme between default and dark
+                                    colors::toggle();
+                                }
                                 KeyCode::Char('>') => match app.active {
                                     Side::Left => {
                                         app.left.preview_offset =
@@ -279,6 +283,7 @@ pub fn run_app() -> anyhow::Result<()> {
                                                     kind: InputKind::ChangePath,
                                                 };
                                             }
+                                            
                                         }
                                     }
                                 }
@@ -295,78 +300,6 @@ pub fn run_app() -> anyhow::Result<()> {
                             }
                             _ => {}
                         },
-                    }
-                }
-                Event::Mouse(mouse) => {
-                    let size = terminal.size()?;
-                    let vchunks = Layout::default()
-                        .direction(Direction::Vertical)
-                        .constraints(
-                            [
-                                Constraint::Length(1),
-                                Constraint::Min(0),
-                                Constraint::Length(1),
-                            ]
-                            .as_ref(),
-                        )
-                        .split(size);
-                    let main_chunks = Layout::default()
-                        .direction(Direction::Horizontal)
-                        .constraints(
-                            [Constraint::Percentage(50), Constraint::Percentage(50)].as_ref(),
-                        )
-                        .split(vchunks[1]);
-                    let left_area = main_chunks[0];
-                    let right_area = main_chunks[1];
-                    let col = mouse.column as u16;
-                    let row = mouse.row as u16;
-                    match mouse.kind {
-                        MouseEventKind::Down(MouseButton::Left) => {
-                            if col >= left_area.x
-                                && col < left_area.x + left_area.width
-                                && row >= left_area.y
-                                && row < left_area.y + left_area.height
-                            {
-                                app.active = Side::Left;
-                                let rel_y = (row as i32) - (left_area.y as i32) - 1;
-                                if rel_y >= 0 {
-                                    let list_height = (left_area.height as usize).saturating_sub(2);
-                                    let idx = app.left.offset.saturating_add(rel_y as usize);
-                                    if idx < app.left.entries.len() {
-                                        app.left.selected = idx;
-                                        app.ensure_selection_visible(list_height);
-                                        app.update_preview_for(Side::Left);
-                                    }
-                                }
-                            }
-                            if col >= right_area.x
-                                && col < right_area.x + right_area.width
-                                && row >= right_area.y
-                                && row < right_area.y + right_area.height
-                            {
-                                app.active = Side::Right;
-                                let rel_y = (row as i32) - (right_area.y as i32) - 1;
-                                if rel_y >= 0 {
-                                    let list_height =
-                                        (right_area.height as usize).saturating_sub(2);
-                                    let idx = app.right.offset.saturating_add(rel_y as usize);
-                                    if idx < app.right.entries.len() {
-                                        app.right.selected = idx;
-                                        app.ensure_selection_visible(list_height);
-                                        app.update_preview_for(Side::Right);
-                                    }
-                                }
-                            }
-                        }
-                        MouseEventKind::ScrollUp => {
-                            let list_height = (left_area.height as usize).saturating_sub(2);
-                            app.page_up(list_height);
-                        }
-                        MouseEventKind::ScrollDown => {
-                            let list_height = (left_area.height as usize).saturating_sub(2);
-                            app.page_down(list_height);
-                        }
-                        _ => {}
                     }
                 }
                 _ => {}

@@ -10,6 +10,7 @@ pub mod menu;
 pub mod modal;
 pub mod panels;
 pub mod header;
+pub mod colors;
 
 pub use menu::*;
 pub use modal::*;
@@ -48,8 +49,9 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, app: &App) {
     );
 
     // bottom help bar
+    let theme = crate::ui::colors::current();
     let help = Paragraph::new("↑/↓:navigate  PgUp/PgDn:page  Enter:open  Backspace:up  d:delete  c:copy  m:move  R:rename  n:new file  N:new dir  s:sort  q:quit")
-        .block(Block::default().borders(Borders::ALL));
+        .block(Block::default().borders(Borders::ALL).style(theme.help_block_style));
     f.render_widget(help, chunks[2]);
 
     // top menu bar

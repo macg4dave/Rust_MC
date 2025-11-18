@@ -2,6 +2,7 @@ pub mod app;
 #[path = "ui/mod.rs"]
 pub mod ui;
 pub mod runner;
+pub mod input;
 
 pub use crate::app::{Action, App, Entry, InputKind, Mode, Side, SortKey};
 pub use crate::app::path;

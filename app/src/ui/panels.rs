@@ -1,13 +1,16 @@
 use tui::backend::Backend;
 use tui::layout::Rect;
-use tui::style::{Color, Modifier, Style};
+use tui::style::{Style};
 use tui::text::{Span, Spans};
 use tui::widgets::{Block, Borders, List, ListItem, Paragraph};
 use tui::Frame;
 
 use crate::app::{Entry, Panel};
+use crate::ui::colors::current as theme_current;
 
 pub fn draw_list<B: Backend>(f: &mut Frame<B>, area: Rect, panel: &Panel, active: bool) {
+    let theme = theme_current();
+
     let list_height = (area.height as usize).saturating_sub(2); // account for borders/title
     let visible = if panel.entries.len() > panel.offset {
         &panel.entries[panel.offset..std::cmp::min(panel.offset + list_height, panel.entries.len())]
@@ -32,9 +35,9 @@ pub fn draw_list<B: Backend>(f: &mut Frame<B>, area: Rect, panel: &Panel, active
             let text = format!("{:<40.40} {:>10} {:>16}", name, size, mtime);
             let style = if e.name == ".." {
                 // Parent entry - show as directory-like
-                Style::default().fg(Color::Blue).add_modifier(Modifier::ITALIC)
+                theme.parent_style
             } else if e.is_dir {
-                Style::default().fg(Color::Blue)
+                theme.dir_style
             } else {
                 Style::default()
             };
@@ -43,11 +46,7 @@ pub fn draw_list<B: Backend>(f: &mut Frame<B>, area: Rect, panel: &Panel, active
         .collect();
 
     let title = format!("{}", panel.cwd.display());
-    let border_style = if active {
-        Style::default().fg(Color::Yellow)
-    } else {
-        Style::default()
-    };
+    let border_style = if active { theme.border_active } else { theme.border_inactive };
     let list = List::new(items)
         .block(
             Block::default()
@@ -55,11 +54,7 @@ pub fn draw_list<B: Backend>(f: &mut Frame<B>, area: Rect, panel: &Panel, active
                 .title(title)
                 .style(border_style),
         )
-        .highlight_style(
-            Style::default()
-                .add_modifier(Modifier::BOLD)
-                .bg(Color::Gray),
-        );
+        .highlight_style(theme.highlight_style);
 
     let mut state = tui::widgets::ListState::default();
     if panel.selected >= panel.offset && panel.selected < panel.offset + list_height {
@@ -83,8 +78,9 @@ pub fn draw_preview<B: Backend>(f: &mut Frame<B>, area: Rect, panel: &Panel) {
         acc.push('\n');
         acc
     });
-    let preview =
-        Paragraph::new(text).block(Block::default().borders(Borders::ALL).title("Preview"));
+    let theme = theme_current();
+    let preview = Paragraph::new(text)
+        .block(Block::default().borders(Borders::ALL).title("Preview").style(theme.preview_block_style));
     f.render_widget(preview, area);
 }
 
