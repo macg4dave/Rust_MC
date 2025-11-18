@@ -1,6 +1,6 @@
 pub mod app;
-pub mod ui_mod;
-pub use ui_mod as ui;
+#[path = "ui/mod.rs"]
+pub mod ui;
 
 pub use crate::app::{App, Entry, SortKey, Mode, InputKind, Action, Side};
 
