@@ -1,10 +1,10 @@
 # Image for running fileZoom tests with fixtures baked in
 # Builds a container that contains the repository at /work and fixtures at /work/app/tests/fixtures
-FROM rust:1.72-bullseye
+FROM debian:stable-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git ca-certificates attr file tzdata \
+    && apt-get install -y --no-install-recommends ca-certificates attr file tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /work
@@ -20,5 +20,9 @@ WORKDIR /work/app
 # Make scripts executable
 RUN chmod +x scripts/*.sh || true
 
-# Default command: open a shell. Use the helper run script to execute tests.
-CMD ["/bin/bash"]
+# The release binary is expected to already exist in the build context (target/release/fileZoom).
+# The build helper (run_with_fakefs.sh) can build the binary locally before creating the image
+# so the image does not need to compile Rust at build time.
+
+# Default command: run the built binary if present, otherwise fall back to a shell.
+CMD ["/work/app/target/release/fileZoom"]
