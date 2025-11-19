@@ -13,7 +13,7 @@ Purpose: quick, actionable guidance to get an AI coding agent productive in this
 - `app/src/ui/` : UI rendering (see `menu.rs`, `modal.rs`, `panels.rs`).
 - `app/tests/fixtures/` : packaged fixtures used by integration tests.
 - `.github/instructions/` : path-specific prompt files (use these for context-aware tasks).
-- `app/building/make_fakefs` : helper for creating fake filesystem structures for tests.
+- `app/test_helper/ `: test utilities.
 
 **Build / Test / Run (practical)**
 - Preferred environment: Linux/macOS or WSL2 on Windows 11. Helper scripts check for WSL and will refuse to run elsewhere.
