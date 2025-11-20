@@ -9,6 +9,12 @@
   - Integration tests added: `ui_menu_interaction.rs` and `menu_commandline_feature.rs`.
   - Minor wiring in `ui::mod` and `runner` handlers to route keys and mouse events.
 
+- Replace manual recursive filesystem walks with `walkdir` where appropriate
+  (improves robustness and reduces manual recursion code). Files updated:
+  - `app/src/fs_op/copy.rs`
+  - `app/src/fs_op/mv.rs`
+  - `app/src/building/make_fakefs_lib.rs`
+
 ### Notes
 
 - Tests run locally and currently pass.

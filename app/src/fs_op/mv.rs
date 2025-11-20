@@ -2,6 +2,7 @@ use std::fmt;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use walkdir::WalkDir;
 
 /// Errors returned by move/copy helpers.
 #[derive(Debug)]
@@ -50,15 +51,22 @@ pub fn copy_path<P: AsRef<Path>, Q: AsRef<Path>>(src: P, dest: Q) -> Result<(), 
     if s.is_dir() {
         // ensure dest exists
         fs::create_dir_all(d).map_err(MvError::Io)?;
-        for entry in fs::read_dir(s).map_err(MvError::Io)? {
-            let ent = entry.map_err(MvError::Io)?;
-            let file_name = ent.file_name();
-            let src_child = ent.path();
-            let dest_child = d.join(file_name);
-            if src_child.is_dir() {
-                copy_path(&src_child, &dest_child)?;
+
+        // Walk the source directory recursively and mirror into `d`.
+        for entry in WalkDir::new(s).min_depth(1).follow_links(false) {
+            let entry = entry.map_err(|e| MvError::Io(io::Error::new(io::ErrorKind::Other, e)))?;
+            let from = entry.path();
+            let rel = from.strip_prefix(s).map_err(|e| MvError::Io(io::Error::new(io::ErrorKind::Other, e)))?;
+            let dest_path = d.join(rel);
+            let ft = entry.file_type();
+
+            if ft.is_dir() {
+                fs::create_dir_all(&dest_path).map_err(MvError::Io)?;
             } else {
-                fs::copy(&src_child, &dest_child).map_err(MvError::Io)?;
+                if let Some(parent) = dest_path.parent() {
+                    fs::create_dir_all(parent).map_err(MvError::Io)?;
+                }
+                fs::copy(&from, &dest_path).map_err(MvError::Io)?;
             }
         }
     } else {
