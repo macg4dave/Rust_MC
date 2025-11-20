@@ -9,6 +9,7 @@ pub mod core;
 )]
 pub mod path;
 pub mod types;
+pub mod settings;
 
 pub use core::panel::Panel;
 pub use core::App;

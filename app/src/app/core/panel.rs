@@ -24,6 +24,8 @@ pub struct Panel {
     pub preview: String,
     /// Scroll offset for the preview text.
     pub preview_offset: usize,
+    /// Selected entry indices for multi-selection (domain indexes into `entries`).
+    pub selections: std::collections::HashSet<usize>,
 }
 
 impl Panel {
@@ -36,7 +38,32 @@ impl Panel {
             offset: 0,
             preview: String::new(),
             preview_offset: 0,
+            selections: std::collections::HashSet::new(),
         }
+    }
+
+    /// Toggle selection of the currently selected entry (if any).
+    pub fn toggle_selection(&mut self) {
+        if let Some(idx) = {
+            let header_count = 1usize;
+            let parent_count = if self.cwd.parent().is_some() { 1usize } else { 0usize };
+            if self.selected >= header_count + parent_count {
+                Some(self.selected - header_count - parent_count)
+            } else {
+                None
+            }
+        } {
+            if self.selections.contains(&idx) {
+                self.selections.remove(&idx);
+            } else {
+                self.selections.insert(idx);
+            }
+        }
+    }
+
+    /// Clear all selections in this panel.
+    pub fn clear_selections(&mut self) {
+        self.selections.clear();
     }
 
     /// Return a reference to the currently selected entry, if present.

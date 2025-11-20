@@ -107,7 +107,7 @@ pub fn draw_list(f: &mut Frame, area: Rect, panel: &Panel, active: bool) {
     header_spans.push(Span::styled(format!("{:<width$}", "rwx", width = perms_col as usize), theme.header_style));
     // We'll construct the columns header from `header_spans` when needed.
 
-    for e in visible.iter() {
+    for (i, e) in visible.iter().enumerate() {
         if is_entry_header(e) {
             items.push(crate::ui::header::render_header(&e.entry.name));
             items.push(ListItem::new(Text::from(Line::from(header_spans.clone()))));
@@ -122,7 +122,20 @@ pub fn draw_list(f: &mut Frame, area: Rect, panel: &Panel, active: bool) {
         };
         // Build spans for columns: name | size | modified | perms
         let icon = if e.entry.is_dir { "📁 " } else { "📄 " };
-        let name_text = format!("{}{}", icon, e.display);
+        // Determine if this visible ui row corresponds to a domain entry and
+        // whether it is selected in the panel's multi-selection set.
+        let ui_index = panel.offset + i;
+        let header_count = 1usize;
+        let parent_count = if panel.cwd.parent().is_some() { 1usize } else { 0usize };
+        let mut name_text = format!("{}{}", icon, e.display);
+        if !e.synthetic {
+            let domain_idx = ui_index.saturating_sub(header_count + parent_count);
+            if panel.selections.contains(&domain_idx) {
+                name_text = format!("* {}", name_text);
+            } else {
+                name_text = format!("  {}", name_text);
+            }
+        }
         let name_field = if name_text.len() > name_col {
             name_text[..name_col].to_string()
         } else {
@@ -142,8 +155,19 @@ pub fn draw_list(f: &mut Frame, area: Rect, panel: &Panel, active: bool) {
         let perms_field = "rwx".to_string();
 
         let mut spans: Vec<Span> = Vec::new();
+        // Render a compact selection marker separate from the filename so it can be styled.
+        let marker = if !e.synthetic {
+            let ui_index = panel.offset + i;
+            let header_count = 1usize;
+            let parent_count = if panel.cwd.parent().is_some() { 1usize } else { 0usize };
+            let domain_idx = ui_index.saturating_sub(header_count + parent_count);
+            if panel.selections.contains(&domain_idx) { "[x] " } else { "[ ] " }
+        } else {
+            "    "
+        };
+        spans.push(Span::styled(format!("{:<4}", marker), theme.help_block_style));
         spans.push(Span::styled(name_field, style));
-            spans.push(Span::raw(" │ "));
+        spans.push(Span::raw(" │ "));
         spans.push(Span::styled(size_field, theme.help_block_style));
             spans.push(Span::raw(" │ "));
         spans.push(Span::styled(mtime_field, theme.help_block_style));

@@ -1,0 +1,7 @@
+<!-- sample settings for fileZoom -->
+<settings>
+  <theme>default</theme>
+  <show_hidden>false</show_hidden>
+  <left_panel_width>40</left_panel_width>
+  <right_panel_width>40</right_panel_width>
+</settings>

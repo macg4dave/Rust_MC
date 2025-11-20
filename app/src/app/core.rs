@@ -15,6 +15,13 @@ pub struct App {
     pub sort_desc: bool,
     pub menu_index: usize,
     pub menu_focused: bool,
+    /// Receiver for progress updates from background file operations.
+    pub op_progress_rx: Option<std::sync::mpsc::Receiver<crate::runner::progress::ProgressUpdate>>,
+    /// Cancel flag shared with background operation thread (if any).
+    pub op_cancel_flag: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
+    /// Sender for communicating user's decision back to the background worker
+    /// when a file-exists conflict is presented.
+    pub op_decision_tx: Option<std::sync::mpsc::Sender<crate::runner::progress::OperationDecision>>,
 }
 
 // submodules live in `app/src/app/core/`
@@ -98,9 +105,79 @@ impl App {
             sort_desc: false,
             menu_index: 0,
             menu_focused: false,
+            op_progress_rx: None,
+            op_cancel_flag: None,
+            op_decision_tx: None,
         };
         app.refresh()?;
         Ok(app)
+    }
+
+    /// Poll an active progress receiver and update the `Mode::Progress` state
+    /// accordingly. This should be called periodically from the event loop so
+    /// the UI can reflect progress updates and completion.
+    pub fn poll_progress(&mut self) {
+        if let Some(rx) = &self.op_progress_rx {
+            // Drain available updates - keep the last one
+            let mut last: Option<crate::runner::progress::ProgressUpdate> = None;
+            loop {
+                match rx.try_recv() {
+                    Ok(u) => last = Some(u),
+                    Err(std::sync::mpsc::TryRecvError::Empty) => break,
+                    Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                        // Channel closed unexpectedly - clear receiver and exit
+                        self.op_progress_rx = None;
+                        break;
+                    }
+                }
+            }
+            if let Some(upd) = last {
+                    if upd.conflict.is_some() {
+                        // Present conflict modal to user and leave decision channel
+                        if let Some(p) = &upd.conflict {
+                            self.mode = Mode::Conflict { path: p.clone(), selected: 0 };
+                            return;
+                        }
+                    }
+                if upd.done {
+                    // Operation finished: clear receiver and show a message or error
+                    self.op_progress_rx = None;
+                    // clear cancel flag as operation is complete
+                    self.op_cancel_flag = None;
+                    self.op_decision_tx = None;
+                    if let Some(err) = upd.error {
+                        self.mode = Mode::Message {
+                            title: "Error".to_string(),
+                            content: err,
+                            buttons: vec!["OK".to_string()],
+                            selected: 0,
+                        };
+                    } else {
+                        let content = format!("{} items processed", upd.processed);
+                        self.mode = Mode::Message {
+                            title: "Done".to_string(),
+                            content,
+                            buttons: vec!["OK".to_string()],
+                            selected: 0,
+                        };
+                    }
+                    // Clear any multi-selections after successful/failed operation
+                    self.left.clear_selections();
+                    self.right.clear_selections();
+                    // Refresh panels after operation
+                    let _ = self.refresh();
+                } else {
+                    // Update progress mode
+                    self.mode = Mode::Progress {
+                        title: upd.message.clone().unwrap_or_else(|| "Progress".to_string()),
+                        processed: upd.processed,
+                        total: upd.total,
+                        message: upd.message.unwrap_or_default(),
+                        cancelled: false,
+                    };
+                }
+            }
+        }
     }
 
     pub fn refresh(&mut self) -> io::Result<()> {
@@ -230,6 +307,9 @@ mod tests {
             sort_desc: false,
             menu_index: 0,
             menu_focused: false,
+            op_progress_rx: None,
+            op_cancel_flag: None,
+            op_decision_tx: None,
         };
         app.refresh().unwrap();
 
@@ -289,6 +369,9 @@ mod tests {
             sort_desc: false,
             menu_index: 0,
             menu_focused: false,
+            op_progress_rx: None,
+            op_cancel_flag: None,
+            op_decision_tx: None,
         };
         app.refresh().unwrap();
         // modify left via panel_mut and check read through panel

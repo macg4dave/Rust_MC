@@ -8,5 +8,6 @@ pub mod commands;
 pub mod event_loop_main;
 pub mod handlers;
 pub mod terminal;
+pub mod progress;
 
 pub use event_loop_main::run_app;

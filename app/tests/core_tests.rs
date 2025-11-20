@@ -36,6 +36,9 @@ fn sort_name_puts_dirs_first() {
         sort_desc: false,
         menu_index: 0,
         menu_focused: false,
+        op_progress_rx: None,
+        op_cancel_flag: None,
+            op_decision_tx: None,
     };
     app.refresh().unwrap();
 
@@ -65,6 +68,9 @@ fn preview_truncates_large_file() {
         sort_desc: false,
         menu_index: 0,
         menu_focused: false,
+        op_progress_rx: None,
+        op_cancel_flag: None,
+            op_decision_tx: None,
     };
     app.refresh().unwrap();
 
@@ -112,6 +118,9 @@ fn preview_shows_directory_entries_limited() {
         sort_desc: false,
         menu_index: 0,
         menu_focused: false,
+        op_progress_rx: None,
+        op_cancel_flag: None,
+            op_decision_tx: None,
     };
     app.refresh().unwrap();
 
@@ -162,6 +171,9 @@ fn preview_resets_preview_offset() {
         sort_desc: false,
         menu_index: 0,
         menu_focused: false,
+        op_progress_rx: None,
+        op_cancel_flag: None,
+            op_decision_tx: None,
     };
     app.refresh().unwrap();
 
@@ -210,6 +222,9 @@ fn preview_handles_very_long_filename() {
         sort_desc: false,
         menu_index: 0,
         menu_focused: false,
+        op_progress_rx: None,
+        op_cancel_flag: None,
+            op_decision_tx: None,
     };
     app.refresh().unwrap();
 
@@ -262,6 +277,9 @@ fn preview_unreadable_file_shows_message() {
         sort_desc: false,
         menu_index: 0,
         menu_focused: false,
+        op_progress_rx: None,
+        op_cancel_flag: None,
+        op_decision_tx: None,
     };
     app.refresh().unwrap();
 

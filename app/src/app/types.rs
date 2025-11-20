@@ -107,6 +107,17 @@ pub enum Mode {
         buttons: Vec<String>,
         selected: usize,
     },
+    Progress {
+        title: String,
+        processed: usize,
+        total: usize,
+        message: String,
+        cancelled: bool,
+    },
+    Conflict {
+        path: std::path::PathBuf,
+        selected: usize,
+    },
     Input {
         prompt: String,
         buffer: String,

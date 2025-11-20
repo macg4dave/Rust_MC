@@ -44,7 +44,7 @@ pub fn ui(f: &mut Frame, app: &App) {
 
     // bottom help bar
     let theme = crate::ui::colors::current();
-    let help = Paragraph::new("F1:menu  ?:help  ↑/↓:navigate  PgUp/PgDn:page  Enter:open  Backspace:up  d:delete  c:copy  m:move  R:rename  n:new file  N:new dir  s:sort  q:quit")
+    let help = Paragraph::new("F1:menu  ?:help  ↑/↓:navigate  PgUp/PgDn:page  Enter:open  Backspace:up  Tab:switch panels  F5:copy  F6:move  d:delete  c:copy(to...)  m:move(to...)  R:rename  n:new file  N:new dir  s:sort  q:quit")
         .block(Block::default().borders(Borders::ALL).style(theme.help_block_style));
     f.render_widget(help, chunks[3]);
 
@@ -80,6 +80,15 @@ pub fn ui(f: &mut Frame, app: &App) {
             } else {
                 dialogs::draw_info(f, f.area(), title, content, &btn_refs, *selected);
             }
+        }
+        Mode::Progress { title, processed, total, message, .. } => {
+            let content = format!("{}/{}\n{}\n\nPress Esc to cancel.", processed, total, message);
+            modal::draw_popup(f, f.area(), 40, 20, title, &content);
+        }
+        Mode::Conflict { path, selected } => {
+            let content = format!("Target exists: {}\n\nChoose an action:", path.display());
+            let buttons = ["Overwrite", "Skip", "Overwrite All", "Skip All", "Cancel"];
+            dialogs::draw_confirm(f, f.area(), "Conflict", &content, &buttons, *selected);
         }
         Mode::Normal => {}
     }

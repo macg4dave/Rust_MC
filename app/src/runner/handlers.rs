@@ -4,10 +4,15 @@ use crate::input::KeyCode;
 use std::path::PathBuf;
 use crate::input::MouseEvent;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
+use std::sync::{mpsc, Arc};
+use std::sync::atomic::{AtomicBool, Ordering};
+use crate::runner::progress::{ProgressUpdate, OperationDecision};
 
 pub fn handle_key(app: &mut App, code: KeyCode, page_size: usize) -> anyhow::Result<bool> {
     match &mut app.mode {
         Mode::Normal => handle_normal(app, code, page_size),
+        Mode::Progress { .. } => handle_progress(app, code),
+        Mode::Conflict { .. } => handle_conflict(app, code),
         Mode::Message { .. } => {
             // Dismiss message on Enter, Esc, or any key
             match code {
@@ -19,6 +24,64 @@ pub fn handle_key(app: &mut App, code: KeyCode, page_size: usize) -> anyhow::Res
         Mode::Confirm { .. } => handle_confirm(app, code),
         Mode::Input { .. } => handle_input(app, code),
     }
+}
+
+fn handle_conflict(app: &mut App, code: crate::input::KeyCode) -> anyhow::Result<bool> {
+    use crate::runner::progress::OperationDecision;
+    match &mut app.mode {
+        Mode::Conflict { path: _, selected } => {
+            match code {
+                KeyCode::Left => {
+                    if *selected > 0 { *selected -= 1; }
+                }
+                KeyCode::Right => {
+                    if *selected < 4 { *selected += 1; }
+                }
+                KeyCode::Enter => {
+                    let decision = match *selected {
+                        0 => OperationDecision::Overwrite,
+                        1 => OperationDecision::Skip,
+                        2 => OperationDecision::OverwriteAll,
+                        3 => OperationDecision::SkipAll,
+                        _ => OperationDecision::Cancel,
+                    };
+                    if let Some(tx) = &app.op_decision_tx {
+                        let _ = tx.send(decision);
+                    }
+                    app.mode = Mode::Progress { title: "Resolving".to_string(), processed: 0, total: 0, message: "Applying decision".to_string(), cancelled: false };
+                }
+                KeyCode::Esc => {
+                    if let Some(tx) = &app.op_decision_tx {
+                        let _ = tx.send(OperationDecision::Cancel);
+                    }
+                    app.mode = Mode::Progress { title: "Resolving".to_string(), processed: 0, total: 0, message: "Cancelling".to_string(), cancelled: true };
+                }
+                KeyCode::Char('o') | KeyCode::Char('O') => {
+                    if let Some(tx) = &app.op_decision_tx { let _ = tx.send(OperationDecision::Overwrite); }
+                    app.mode = Mode::Progress { title: "Resolving".to_string(), processed: 0, total: 0, message: "Applying decision".to_string(), cancelled: false };
+                }
+                KeyCode::Char('s') | KeyCode::Char('S') => {
+                    if let Some(tx) = &app.op_decision_tx { let _ = tx.send(OperationDecision::Skip); }
+                    app.mode = Mode::Progress { title: "Resolving".to_string(), processed: 0, total: 0, message: "Applying decision".to_string(), cancelled: false };
+                }
+                KeyCode::Char('a') | KeyCode::Char('A') => {
+                    if let Some(tx) = &app.op_decision_tx { let _ = tx.send(OperationDecision::OverwriteAll); }
+                    app.mode = Mode::Progress { title: "Resolving".to_string(), processed: 0, total: 0, message: "Applying decision".to_string(), cancelled: false };
+                }
+                KeyCode::Char('k') | KeyCode::Char('K') => {
+                    if let Some(tx) = &app.op_decision_tx { let _ = tx.send(OperationDecision::SkipAll); }
+                    app.mode = Mode::Progress { title: "Resolving".to_string(), processed: 0, total: 0, message: "Applying decision".to_string(), cancelled: false };
+                }
+                KeyCode::Char('c') | KeyCode::Char('C') => {
+                    if let Some(tx) = &app.op_decision_tx { let _ = tx.send(OperationDecision::Cancel); }
+                    app.mode = Mode::Progress { title: "Resolving".to_string(), processed: 0, total: 0, message: "Cancelling".to_string(), cancelled: true };
+                }
+                _ => {}
+            }
+        }
+        _ => {}
+    }
+    Ok(false)
 }
 
 /// Handle mouse events given the terminal drawable area `term_rect`.
@@ -279,12 +342,213 @@ fn handle_normal(app: &mut App, code: KeyCode, page_size: usize) -> anyhow::Resu
             app.sort_desc = !app.sort_desc;
             app.refresh()?;
         }
-        KeyCode::Char(' ') => { /* reserved */ }
+        KeyCode::Char(' ') => {
+            // Toggle selection of the currently highlighted entry in the active panel
+            app.active_panel_mut().toggle_selection();
+        }
         KeyCode::Tab => {
             app.active = match app.active {
                 Side::Left => Side::Right,
                 Side::Right => Side::Left,
             };
+        }
+        KeyCode::F(5) => {
+            // Start background copy of selected entries to the other panel's CWD
+            let src_paths: Vec<PathBuf> = {
+                let panel = app.active_panel();
+                let mut v = Vec::new();
+                if !panel.selections.is_empty() {
+                    for &idx in panel.selections.iter() {
+                        if let Some(e) = panel.entries.get(idx) {
+                            v.push(e.path.clone());
+                        }
+                    }
+                } else if let Some(si) = app.selected_index() {
+                    if let Some(e) = panel.entries.get(si) {
+                        v.push(e.path.clone());
+                    }
+                }
+                v
+            };
+            if src_paths.is_empty() { return Ok(false); }
+            let dst_dir = match app.active {
+                Side::Left => app.right.cwd.clone(),
+                Side::Right => app.left.cwd.clone(),
+            };
+
+            let (tx, rx) = mpsc::channel();
+            let (dec_tx, dec_rx) = mpsc::channel::<OperationDecision>();
+            app.op_decision_tx = Some(dec_tx.clone());
+            app.op_progress_rx = Some(rx);
+            let total = src_paths.len();
+            app.mode = Mode::Progress { title: "Copying".to_string(), processed: 0, total, message: "Starting".to_string(), cancelled: false };
+
+            let cancel_flag = Arc::new(AtomicBool::new(false));
+            app.op_cancel_flag = Some(cancel_flag.clone());
+
+            // Spawn background thread to perform copies and report progress
+            std::thread::spawn(move || {
+                let mut overwrite_all = false;
+                let mut skip_all = false;
+                for (i, src) in src_paths.into_iter().enumerate() {
+                    if cancel_flag.load(Ordering::SeqCst) {
+                        let _ = tx.send(ProgressUpdate { processed: i, total, message: Some("Cancelled".to_string()), done: true, error: Some("Cancelled".to_string()), conflict: None });
+                        return;
+                    }
+                    let file_name = src.file_name().map(|s| s.to_os_string());
+                    let target = if let Some(fname) = &file_name { dst_dir.join(fname) } else { dst_dir.clone() };
+
+                    if target.exists() {
+                        if skip_all {
+                            let _ = tx.send(ProgressUpdate { processed: i, total, message: Some(format!("Skipped {}", src.display())), done: false, error: None, conflict: None });
+                            continue;
+                        }
+                        if !overwrite_all {
+                            // Ask UI for decision
+                            let _ = tx.send(ProgressUpdate { processed: i, total, message: Some("Conflict".to_string()), done: false, error: None, conflict: Some(target.clone()) });
+                            match dec_rx.recv() {
+                                Ok(OperationDecision::Cancel) => {
+                                    let _ = tx.send(ProgressUpdate { processed: i, total, message: Some("Cancelled by user".to_string()), done: true, error: Some("Cancelled by user".to_string()), conflict: None });
+                                    return;
+                                }
+                                Ok(OperationDecision::Skip) => {
+                                    let _ = tx.send(ProgressUpdate { processed: i, total, message: Some(format!("Skipped {}", src.display())), done: false, error: None, conflict: None });
+                                    continue;
+                                }
+                                Ok(OperationDecision::SkipAll) => {
+                                    skip_all = true;
+                                    let _ = tx.send(ProgressUpdate { processed: i, total, message: Some(format!("Skipped {} (all)", src.display())), done: false, error: None, conflict: None });
+                                    continue;
+                                }
+                                Ok(OperationDecision::OverwriteAll) => {
+                                    overwrite_all = true;
+                                }
+                                Ok(OperationDecision::Overwrite) => {
+                                    // proceed to overwrite
+                                }
+                                Err(_) => {
+                                    let _ = tx.send(ProgressUpdate { processed: i, total, message: Some("Decision channel closed".to_string()), done: true, error: Some("Decision channel closed".to_string()), conflict: None });
+                                    return;
+                                }
+                            }
+                        }
+                        // if we reach here and target exists and overwrite_all==true or Overwrite chosen
+                        // Remove existing target first
+                        if target.is_dir() {
+                            let _ = std::fs::remove_dir_all(&target);
+                        } else {
+                            let _ = std::fs::remove_file(&target);
+                        }
+                    }
+
+                    let res = if src.is_dir() {
+                        crate::fs_op::copy::copy_recursive(&src, &target)
+                    } else {
+                        if let Err(e) = crate::fs_op::helpers::ensure_parent_exists(&target) { Err(e) } else { crate::fs_op::helpers::atomic_copy_file(&src, &target).map(|_| ()) }
+                    };
+                    if let Err(e) = res {
+                        let _ = tx.send(ProgressUpdate { processed: i, total, message: Some(format!("Error: {}", e)), done: true, error: Some(format!("{}", e)), conflict: None });
+                        return;
+                    }
+                    let _ = tx.send(ProgressUpdate { processed: i + 1, total, message: Some(format!("Copied {}", src.display())), done: false, error: None, conflict: None });
+                }
+                let _ = tx.send(ProgressUpdate { processed: total, total, message: Some("Completed".to_string()), done: true, error: None, conflict: None });
+            });
+        }
+        KeyCode::F(6) => {
+            // Start background move of selected entries to the other panel's CWD
+            let src_paths: Vec<PathBuf> = {
+                let panel = app.active_panel();
+                let mut v = Vec::new();
+                if !panel.selections.is_empty() {
+                    for &idx in panel.selections.iter() {
+                        if let Some(e) = panel.entries.get(idx) {
+                            v.push(e.path.clone());
+                        }
+                    }
+                } else if let Some(si) = app.selected_index() {
+                    if let Some(e) = panel.entries.get(si) {
+                        v.push(e.path.clone());
+                    }
+                }
+                v
+            };
+            if src_paths.is_empty() { return Ok(false); }
+            let dst_dir = match app.active {
+                Side::Left => app.right.cwd.clone(),
+                Side::Right => app.left.cwd.clone(),
+            };
+
+            let (tx, rx) = mpsc::channel();
+            let (dec_tx, dec_rx) = mpsc::channel::<OperationDecision>();
+            app.op_decision_tx = Some(dec_tx.clone());
+            app.op_progress_rx = Some(rx);
+            let total = src_paths.len();
+            app.mode = Mode::Progress { title: "Moving".to_string(), processed: 0, total, message: "Starting".to_string(), cancelled: false };
+
+            let cancel_flag = Arc::new(AtomicBool::new(false));
+            app.op_cancel_flag = Some(cancel_flag.clone());
+
+            std::thread::spawn(move || {
+                let mut overwrite_all = false;
+                let mut skip_all = false;
+                for (i, src) in src_paths.into_iter().enumerate() {
+                    if cancel_flag.load(Ordering::SeqCst) {
+                        let _ = tx.send(ProgressUpdate { processed: i, total, message: Some("Cancelled".to_string()), done: true, error: Some("Cancelled".to_string()), conflict: None });
+                        return;
+                    }
+                    let file_name = src.file_name().map(|s| s.to_os_string());
+                    let target = if let Some(fname) = &file_name { dst_dir.join(fname) } else { dst_dir.clone() };
+
+                    if target.exists() {
+                        if skip_all {
+                            let _ = tx.send(ProgressUpdate { processed: i, total, message: Some(format!("Skipped {}", src.display())), done: false, error: None, conflict: None });
+                            continue;
+                        }
+                        if !overwrite_all {
+                            let _ = tx.send(ProgressUpdate { processed: i, total, message: Some("Conflict".to_string()), done: false, error: None, conflict: Some(target.clone()) });
+                            match dec_rx.recv() {
+                                Ok(OperationDecision::Cancel) => {
+                                    let _ = tx.send(ProgressUpdate { processed: i, total, message: Some("Cancelled by user".to_string()), done: true, error: Some("Cancelled by user".to_string()), conflict: None });
+                                    return;
+                                }
+                                Ok(OperationDecision::Skip) => {
+                                    let _ = tx.send(ProgressUpdate { processed: i, total, message: Some(format!("Skipped {}", src.display())), done: false, error: None, conflict: None });
+                                    continue;
+                                }
+                                Ok(OperationDecision::SkipAll) => {
+                                    skip_all = true;
+                                    let _ = tx.send(ProgressUpdate { processed: i, total, message: Some(format!("Skipped {} (all)", src.display())), done: false, error: None, conflict: None });
+                                    continue;
+                                }
+                                Ok(OperationDecision::OverwriteAll) => {
+                                    overwrite_all = true;
+                                }
+                                Ok(OperationDecision::Overwrite) => {
+                                    // proceed
+                                }
+                                Err(_) => {
+                                    let _ = tx.send(ProgressUpdate { processed: i, total, message: Some("Decision channel closed".to_string()), done: true, error: Some("Decision channel closed".to_string()), conflict: None });
+                                    return;
+                                }
+                            }
+                        }
+                        if target.is_dir() {
+                            let _ = std::fs::remove_dir_all(&target);
+                        } else {
+                            let _ = std::fs::remove_file(&target);
+                        }
+                    }
+
+                    let res = if let Err(e) = crate::fs_op::helpers::ensure_parent_exists(&target) { Err(e) } else { crate::fs_op::helpers::atomic_rename_or_copy(&src, &target).map(|_| ()) };
+                    if let Err(e) = res {
+                        let _ = tx.send(ProgressUpdate { processed: i, total, message: Some(format!("Error: {}", e)), done: true, error: Some(format!("{}", e)), conflict: None });
+                        return;
+                    }
+                    let _ = tx.send(ProgressUpdate { processed: i + 1, total, message: Some(format!("Moved {}", src.display())), done: false, error: None, conflict: None });
+                }
+                let _ = tx.send(ProgressUpdate { processed: total, total, message: Some("Completed".to_string()), done: true, error: None, conflict: None });
+            });
         }
         KeyCode::F(1) => {
             // Toggle menu focus
@@ -340,6 +604,24 @@ fn handle_normal(app: &mut App, code: KeyCode, page_size: usize) -> anyhow::Resu
         KeyCode::Char('<') => {
             let panel = app.active_panel_mut();
             panel.preview_offset = panel.preview_offset.saturating_sub(5);
+        }
+        _ => {}
+    }
+    Ok(false)
+}
+
+/// Handle key events while in a progress mode. Support cancellation via Esc.
+fn handle_progress(app: &mut App, code: KeyCode) -> anyhow::Result<bool> {
+    match code {
+        KeyCode::Esc => {
+            if let Some(flag) = app.op_cancel_flag.take() {
+                flag.store(true, Ordering::SeqCst);
+            }
+            // Mark mode as cancelled if currently in progress
+            if let Mode::Progress { title, processed, total, message, .. } = &mut app.mode {
+                *message = "Cancelling...".to_string();
+                app.mode = Mode::Progress { title: title.clone(), processed: *processed, total: *total, message: message.clone(), cancelled: true };
+            }
         }
         _ => {}
     }
