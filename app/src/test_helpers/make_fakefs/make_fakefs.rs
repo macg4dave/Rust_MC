@@ -40,9 +40,10 @@ fn main() {
             };
             fixtures::apply_permissions(&fixtures);
         }
-        "run" => {
+        "run" | "run-isolated" => {
             // parse optional flags
             let mut terminal_override: Option<&str> = None;
+            // Default: open a new terminal window and use isolated fixtures
             let mut foreground = false;
             let mut i = 2;
             while i < args.len() {
@@ -70,7 +71,7 @@ fn main() {
                     }
                 }
             }
-            run::run_image_in_terminal(terminal_override, foreground);
+            run::run_image_isolated(terminal_override, foreground);
         }
         _ => {
             eprintln!("Usage: make_fakefs <build|generate-fixtures|apply-permissions|run>");

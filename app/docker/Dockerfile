@@ -1,7 +1,23 @@
-# Image for running fileZoom tests with fakefs baked in
-# Builds a container that contains the app and fakefs filesystem image.
-FROM debian:stable-slim
+# Multi-stage Dockerfile: build a Linux release binary inside the builder
+# stage so the resulting image runs on Linux regardless of host OS.
 
+FROM rust:1 AS builder
+WORKDIR /work
+
+# Copy the repository into the build image and build the release binary.
+COPY . /work
+WORKDIR /work/app
+
+# Ensure minimal packages for building. Keep layers small by cleaning apt lists.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential pkg-config ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Build the release binary inside the builder. This produces a Linux executable
+# that will be copied into the final runtime image.
+RUN cargo build --release
+
+FROM debian:stable-slim AS runtime
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates attr file tzdata \
@@ -9,20 +25,17 @@ RUN apt-get update \
 
 WORKDIR /work
 
-# Copy repo into image. This preserves the fixtures under app/tests/fixtures
-COPY . /work
+# Copy everything from the builder so the runtime image contains the built
+# binary at the path the tests expect (/work/app/target/release/fileZoom).
+COPY --from=builder /work /work
 
 # If an in-image permission script exists, run it now (apply randomized perms inside image)
 RUN if [ -x /work/app/scripts/apply_permissions_in_image.sh ]; then /bin/bash /work/app/scripts/apply_permissions_in_image.sh; fi
 
 WORKDIR /work/app
-
-# Make scripts executable
 RUN chmod +x scripts/*.sh || true
 
-# The release binary is expected to already exist in the build context (target/release/fileZoom).
-# The build helper (run_with_fakefs.sh) can build the binary locally before creating the image
-# so the image does not need to compile Rust at build time.
-
-# Default command: run the built binary if present, otherwise fall back to a shell.
-CMD ["/work/app/target/release/fileZoom"]
+# Default command: run the built release binary (cargo produced a workspace-level
+# target at `/work/target/release/fileZoom`, so use that path which is present
+# regardless of whether the workspace or crate-level build was used).
+CMD ["/work/target/release/fileZoom"]

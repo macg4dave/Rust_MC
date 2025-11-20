@@ -2,6 +2,8 @@ use anyhow::{Context, Result};
 use std::fs;
 use std::path::Path;
 use std::process::Command;
+use std::io::Write;
+use std::io::Read;
 
 /// Copy a directory recursively from `src` to `dst`.
 pub fn copy_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
@@ -105,26 +107,103 @@ pub fn build_image_with_fixtures(fixtures: Option<&Path>, current_dir: &Path) ->
                 return Err(anyhow::anyhow!("cargo build --release failed while producing release binary at {}", expected_bin.display()));
             }
 
+            // Sometimes cargo writes workspace-level targets to `target/release`
+            // at the build context root rather than under `app/target`.
+            // If that happened, move the built binary into the path the Dockerfile
+            // expects (`app/target/release/fileZoom`).
+            if !expected_bin.exists() {
+                let alt = build_ctx.join("target").join("release").join("fileZoom");
+                if alt.exists() {
+                    if let Some(parent) = expected_bin.parent() {
+                        fs::create_dir_all(parent).context("creating parent dir for expected binary")?;
+                    }
+                    fs::copy(&alt, &expected_bin).context("copying workspace-level built binary into expected app/target path")?;
+                }
+            }
+
             if !expected_bin.exists() {
                 return Err(anyhow::anyhow!("Release binary still missing after build; expected at {}", expected_bin.display()));
             }
         }
 
         // Choose the Dockerfile path relative to the copied build context.
-        let dockerfile_rel = if build_ctx.join("docker").join("Dockerfile").exists() {
-            "docker/Dockerfile"
+        let default_dockerfile = if build_ctx.join("docker").join("Dockerfile").exists() {
+            "docker/Dockerfile".to_string()
         } else if build_ctx.join("app").join("docker").join("Dockerfile").exists() {
-            "app/docker/Dockerfile"
+            "app/docker/Dockerfile".to_string()
         } else {
             // Fallback to docker/Dockerfile; Docker will error if missing.
-            "docker/Dockerfile"
+            "docker/Dockerfile".to_string()
+        };
+
+        // If the expected binary is present and looks like an ELF (Linux) binary,
+        // use the existing Dockerfile. Otherwise, generate a temporary
+        // multi-stage Dockerfile in the build context that builds the release
+        // binary inside the builder image so the runtime image contains a
+        // compatible Linux executable. This leaves the repo's Dockerfile
+        // unchanged.
+        let expected_bin = build_ctx.join("app").join("target").join("release").join("fileZoom");
+        let use_dockerfile = if expected_bin.exists() {
+            // quick ELF magic check
+            match std::fs::File::open(&expected_bin) {
+                Ok(mut f) => {
+                    let mut magic = [0u8; 4];
+                    if let Ok(_) = f.read_exact(&mut magic) {
+                        magic == [0x7f, b'E', b'L', b'F']
+                    } else {
+                        false
+                    }
+                }
+                Err(_) => false,
+            }
+        } else {
+            false
+        };
+
+        let dockerfile_rel = if use_dockerfile {
+            default_dockerfile
+        } else {
+            // Create a temporary multi-stage Dockerfile inside build_ctx
+            let temp_path = build_ctx.join("Dockerfile.multistage");
+            let mut file = fs::File::create(&temp_path).context("failed to create temp Dockerfile")?;
+            let content = r#"FROM rust:1 AS builder
+WORKDIR /work
+COPY . /work
+WORKDIR /work/app
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential pkg-config ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+RUN cargo build --release
+
+FROM debian:stable-slim AS runtime
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates attr file tzdata \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /work
+COPY --from=builder /work /work
+RUN if [ -x /work/app/scripts/apply_permissions_in_image.sh ]; then /bin/bash /work/app/scripts/apply_permissions_in_image.sh; fi
+WORKDIR /work/app
+RUN chmod +x scripts/*.sh || true
+CMD ["/work/target/release/fileZoom"]
+"#;
+            file.write_all(content.as_bytes())?;
+            // Use the temporary Dockerfile path relative to the build context
+            "Dockerfile.multistage".to_string()
         };
 
         let status = Command::new("docker")
             .current_dir(&build_ctx)
-            .args(["build", "-f", dockerfile_rel, "-t", "filezoom-fakefs", "."])
+            .args(["build", "-f", &dockerfile_rel, "-t", "filezoom-fakefs", "."]) 
             .status()
             .context("Failed to run docker build")?;
+
+        // If we created a temporary Dockerfile in the build context, remove it
+        // now that the build finished to avoid leaving artifacts behind.
+        if !use_dockerfile {
+            let tmp = build_ctx.join("Dockerfile.multistage");
+            let _ = fs::remove_file(&tmp);
+        }
 
         let _ = fs::remove_dir_all(&build_ctx);
 
@@ -169,21 +248,77 @@ pub fn build_image_with_fixtures(fixtures: Option<&Path>, current_dir: &Path) ->
             }
         }
 
-        let dockerfile_rel = if current_dir.join("docker").join("Dockerfile").exists() {
-            "docker/Dockerfile"
+        let default_dockerfile = if current_dir.join("docker").join("Dockerfile").exists() {
+            "docker/Dockerfile".to_string()
         } else if current_dir.join("app").join("docker").join("Dockerfile").exists() {
-            "app/docker/Dockerfile"
+            "app/docker/Dockerfile".to_string()
         } else if current_dir.join("../app/docker/Dockerfile").exists() {
-            "../app/docker/Dockerfile"
+            "../app/docker/Dockerfile".to_string()
         } else {
-            "docker/Dockerfile"
+            "docker/Dockerfile".to_string()
+        };
+
+        // Check candidate release binaries for a Linux ELF. Prefer workspace-level
+        // target first, then crate-level.
+        let candidate1 = current_dir.join("target").join("release").join("fileZoom");
+        let candidate2 = current_dir.join("app").join("target").join("release").join("fileZoom");
+        let mut use_dockerfile = false;
+        let mut expected_bin = None;
+        if candidate1.exists() {
+            expected_bin = Some(candidate1);
+        } else if candidate2.exists() {
+            expected_bin = Some(candidate2);
+        }
+        if let Some(p) = &expected_bin {
+            if let Ok(mut f) = fs::File::open(p) {
+                let mut magic = [0u8; 4];
+                if f.read_exact(&mut magic).is_ok() && magic == [0x7f, b'E', b'L', b'F'] {
+                    use_dockerfile = true;
+                }
+            }
+        }
+
+        let dockerfile_to_use = if use_dockerfile {
+            default_dockerfile
+        } else {
+            // Write a temporary multi-stage Dockerfile in `current_dir` and use it.
+            let temp_path = current_dir.join("Dockerfile.multistage");
+            let mut file = fs::File::create(&temp_path).context("failed to create temp Dockerfile")?;
+            let content = r#"FROM rust:1 AS builder
+WORKDIR /work
+COPY . /work
+WORKDIR /work/app
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential pkg-config ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+RUN cargo build --release
+
+FROM debian:stable-slim AS runtime
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates attr file tzdata \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /work
+COPY --from=builder /work /work
+RUN if [ -x /work/app/scripts/apply_permissions_in_image.sh ]; then /bin/bash /work/app/scripts/apply_permissions_in_image.sh; fi
+WORKDIR /work/app
+RUN chmod +x scripts/*.sh || true
+CMD ["/work/target/release/fileZoom"]
+"#;
+            file.write_all(content.as_bytes())?;
+            "Dockerfile.multistage".to_string()
         };
 
         let status = Command::new("docker")
             .current_dir(current_dir)
-            .args(["build", "-f", dockerfile_rel, "-t", "filezoom-fakefs", "."])
+            .args(["build", "-f", &dockerfile_to_use, "-t", "filezoom-fakefs", "."]) 
             .status()
             .context("Failed to run docker build")?;
+
+        // Remove the temporary Dockerfile if we wrote one into `current_dir`.
+        if !use_dockerfile {
+            let _ = fs::remove_file(current_dir.join("Dockerfile.multistage"));
+        }
         if !status.success() {
             return Err(anyhow::anyhow!("Docker build failed"));
         }

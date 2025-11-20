@@ -29,7 +29,6 @@ textwrap = "0.16"
 console = "0.16.1"
 regex = "1"
 atty = "0.2"
-
 [dev-dependencies]
 assert_fs = "1.0"
 tempfile = "3.6"
@@ -38,13 +37,6 @@ insta = "1"
 # For make_fakefs.rs CLI tests
 assert_cmd = "2"
 predicates = "3"
-
-[features]
-# `test-helpers` exposes test-only hooks used by integration tests. It is
-# intentionally not enabled by default so production builds don't include
-# these helpers. Run tests with `--features test-helpers` or configure CI
-# to enable this feature when running the test suite.
-test-helpers = []
 
 [[bin]]
 name = "make_fakefs"

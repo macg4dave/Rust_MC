@@ -3,7 +3,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::io::Write;
-use filetime::FileTime;
+// filetime::FileTime was previously used here; advanced.rs handles filetime
+// modifications now, so we no longer need this import.
 use rand::RngCore;
 use crate::advanced;
 
@@ -56,13 +57,51 @@ pub fn generate_fixtures() -> PathBuf {
 
     let create_file_of_size = |path: &Path, size: usize| {
         if let Some(dir) = path.parent() {
-            let _ = fs::create_dir_all(dir);
+            // Try to create the parent directory tree. If a component along the
+            // path exists as a file (NotADirectory), remove that file and retry
+            // creating directories so generation can proceed.
+            match fs::create_dir_all(dir) {
+                Ok(_) => {}
+                Err(e) => {
+                    if e.kind() == std::io::ErrorKind::NotFound || e.kind() == std::io::ErrorKind::Other || e.kind() == std::io::ErrorKind::NotADirectory {
+                        // Walk ancestors to find any path that exists and is a file,
+                        // remove it, then retry.
+                        for anc in dir.ancestors() {
+                            if anc == Path::new("") { continue; }
+                            match fs::metadata(anc) {
+                                Ok(md) => {
+                                    if md.is_file() {
+                                        let _ = fs::remove_file(anc);
+                                    }
+                                }
+                                Err(_) => {}
+                            }
+                        }
+                        // Retry creating dirs; ignore error on second attempt to let
+                        // the following file creation fail with a clearer message.
+                        let _ = fs::create_dir_all(dir);
+                    } else {
+                        // Non-directory error; ignore here and let file creation fail
+                        // with a clear panic message below.
+                        let _ = fs::create_dir_all(dir);
+                    }
+                }
+            }
         }
         if size == 0 {
-            fs::File::create(path).expect("failed to create empty file");
+            if let Err(e) = fs::File::create(path) {
+                eprintln!("failed to create empty file {:?} parent={:?}: {}", path, path.parent(), e);
+                panic!("failed to create empty file: {}", e);
+            }
             return;
         }
-        let mut f = fs::File::create(path).expect("failed to create file");
+        let mut f = match fs::File::create(path) {
+            Ok(h) => h,
+            Err(e) => {
+                eprintln!("failed to create file {:?} parent={:?}: {}", path, path.parent(), e);
+                panic!("failed to create file: {}", e);
+            }
+        };
         let block = b"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-+_";
         let mut written = 0usize;
         while written < size {
@@ -76,29 +115,58 @@ pub fn generate_fixtures() -> PathBuf {
     #[allow(deprecated)]
     let mut rng = rand::thread_rng();
     let mut i = 0usize;
+
+    fn sanitize_name(name: &str) -> String {
+        // Force ASCII-only filenames: allow ASCII alphanumerics, dot, dash, underscore.
+        // Replace spaces and all non-ASCII or otherwise-problematic characters with '_'.
+        let mut out = String::with_capacity(name.len());
+        for c in name.chars() {
+            if c.is_ascii() {
+                match c {
+                    '/' | '\0' => out.push('_'),
+                    ' ' | '\t' | '\n' | '\r' => out.push('_'),
+                    '\'' | '"' | '`' | '\\' | '*' | '?' | '<' | '>' | '|' | '&' | ';' | '$' | '(' | ')' | '{' | '}' | '[' | ']' | ':' | ',' => out.push('_'),
+                    '%' | '#' | '@' | '+' => out.push('_'),
+                    c if c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '_' => out.push(c),
+                    _ => out.push('_'),
+                }
+            } else {
+                // Non-ASCII -> replace with underscore to ensure ASCII-only names
+                out.push('_');
+            }
+        }
+        let trimmed = out.trim_matches('_').to_string();
+        if trimmed.is_empty() { "file_invalid".to_string() } else { trimmed }
+    }
+
     while count_created < total {
-        let depth = rng.next_u64() as usize % 6;
-        let mut dir = PathBuf::new();
-        for _ in 0..depth {
+        // Build a directory path with a mix of ASCII and occasional
+        // multilingual components. We keep both a sanitized (ASCII-only)
+        // path and a native path so we can create both variants.
+        let depth = (rng.next_u64() as usize % 8) ;
+        let mut dir_sanitized = PathBuf::new();
+        let mut dir_native = PathBuf::new();
+        let mut native_used = false;
+        for d_idx in 0..depth {
             let n = rng.next_u64() as usize % 100;
-            dir.push(format!("dir_{}/", n));
+            if (rng.next_u32() % 100) < 30 {
+                // multilingual component
+                let comp_raw = advanced::gen_name(i + d_idx, &mut rng);
+                let comp_safe = sanitize_name(&comp_raw);
+                dir_sanitized.push(format!("d__{}", comp_safe));
+                dir_native.push(format!("d__{}", comp_raw));
+                native_used = true;
+            } else {
+                let comp = format!("d__dir_{}", n);
+                dir_sanitized.push(comp.clone());
+                dir_native.push(comp.clone());
+            }
         }
 
-    let name = advanced::gen_name(i, &mut rng);
+        let name = advanced::gen_name(i, &mut rng);
+        let safe_name = sanitize_name(&name);
 
-        let trimmed_leading = name.trim_start().to_string();
-        let safe_name = if trimmed_leading != name {
-            let t = trimmed_leading;
-            t
-        } else {
-            if name.chars().last().map(|c| c.is_whitespace()).unwrap_or(false) {
-                format!("{}_", name.trim_end())
-            } else {
-                name
-            }
-        };
-
-        let fullpath = fixtures_dir.join(&dir).join(&safe_name);
+        let fullpath = fixtures_dir.join(&dir_sanitized).join(&safe_name);
 
         let r = rng.next_u64() as usize % 10;
         let size = if r <= 1 {
@@ -113,72 +181,73 @@ pub fn generate_fixtures() -> PathBuf {
 
         create_file_of_size(&fullpath, size);
         emit(&fullpath);
-
         files.push(fullpath.clone());
+        count_created += 1;
 
-        #[cfg(unix)]
-        {
-            use std::process::Command;
-            if rng.next_u32() % 100 < 30 {
-                let xname = format!("user.random{}", rng.next_u64() % 100);
-                let xval = format!("xattr-{}", rng.next_u32());
-                let _ = Command::new("setfattr")
-                    .arg("-n")
-                    .arg(&xname)
-                    .arg("-v")
-                    .arg(&xval)
-                    .arg(&fullpath)
-                    .status();
-            }
-
-            if rng.next_u32() % 100 < 40 {
-                let mode = match rng.next_u64() % 7 {
-                    0 => 0o644,
-                    1 => 0o600,
-                    2 => 0o666,
-                    3 => 0o755,
-                    4 => 0o700,
-                    5 => 0o444,
-                    _ => 0o664,
-                };
-                use std::os::unix::fs::PermissionsExt;
-                let perms = fs::Permissions::from_mode(mode);
-                let _ = fs::set_permissions(&fullpath, perms);
-            }
-
-            if rng.next_u32() % 100 < 50 {
-                let days = (rng.next_u64() as i64 % 365) as i64;
-                let secs = (rng.next_u64() as i64 % 86400) as i64;
-                let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as i64;
-                let new_time = now - (days * 86400 + secs) as i64;
-                let ft = FileTime::from_unix_time(new_time, 0);
-                let _ = filetime::set_file_mtime(&fullpath, ft);
-            }
-
-            if rng.next_u32() % 100 < 10 {
-                if std::process::Command::new("setfacl").arg("-h").status().is_ok() {
-                    let user = if let Ok(out) = std::process::Command::new("id").arg("-un").output() {
-                        String::from_utf8_lossy(&out.stdout).trim().to_string()
-                    } else { String::from("root") };
-                    let _ = std::process::Command::new("setfacl")
-                        .arg("-m")
-                        .arg(format!("u:{}:r--", user))
-                        .arg(&fullpath)
-                        .status();
-                }
-            }
-
-            // centralize advanced attributes & randomization in one module so it can be tested
-            // individually and reused elsewhere. The function returns any created paths
-            // which should be written to the manifest.
-            let created = advanced::apply_advanced_attrs(&mut rng, &files, &fullpath, &fixtures_dir);
-            for c in &created {
-                emit(c);
+        // Optionally create a native-name variant in the native directory
+        if native_used || (rng.next_u32() % 100) < 50 {
+            let native_name: String = name.chars().map(|c| if c == '/' || c == '\0' { '_' } else { c }).collect();
+            let native_path = fixtures_dir.join(&dir_native).join(&native_name);
+            if native_path != fullpath {
+                create_file_of_size(&native_path, size);
+                emit(&native_path);
+                files.push(native_path);
+                count_created += 1;
             }
         }
 
-        count_created += 1;
+        // Create a nested subtree with variable size to exercise directory trees
+        // of different shapes. Some iterations will create deeper trees with
+        // many files; others will be shallow.
+        if (rng.next_u32() % 100) < 40 {
+            let tree_depth = 1 + (rng.next_u32() as usize % 5);
+            let mut base = fixtures_dir.join(&dir_sanitized);
+            for td in 0..tree_depth {
+                let branch_count = 1 + (rng.next_u32() as usize % 6);
+                for b in 0..branch_count {
+                    let subdir_name = if (rng.next_u32() % 100) < 25 {
+                        // multilingual directory under the subtree
+                        let raw = advanced::gen_name(i + td + b, &mut rng);
+                        format!("d__{}", sanitize_name(&raw))
+                    } else {
+                        let num = rng.next_u32() as usize % 1000;
+                        format!("d__sub_{}", num)
+                    };
+                    base.push(&subdir_name);
+                    // create a few files inside this subdir
+                    let files_here = 1 + (rng.next_u32() as usize % 8);
+                    for fh in 0..files_here {
+                        let fname = advanced::gen_name(i + td + b + fh, &mut rng);
+                        let f_safe = sanitize_name(&fname);
+                        let p = base.join(&f_safe);
+                        let sz = 1 + (rng.next_u64() as usize % 4096);
+                        create_file_of_size(&p, sz);
+                        emit(&p);
+                        files.push(p);
+                        count_created += 1;
+                    }
+                    // pop the subdir component to continue loops
+                    base.pop();
+                }
+                // go one level deeper for next td
+            }
+        }
+
         i += 1;
+    }
+
+    // Apply advanced attributes across all generated files so symlinks, FIFOs,
+    // ACLs and xattrs are created and added to the manifest.
+    {
+        let mut created_any: Vec<PathBuf> = Vec::new();
+        for f in &files {
+            let extra = advanced::apply_advanced_attrs(&mut rng, &files, f, &fixtures_dir);
+            for c in &extra {
+                emit(c);
+                created_any.push(c.clone());
+            }
+        }
+        files.extend(created_any.into_iter());
     }
 
     println!("Wrote {} entries to {}", count_created, manifest.display());
