@@ -29,20 +29,22 @@ pub fn handle_key(app: &mut App, code: KeyCode, page_size: usize) -> anyhow::Res
 fn handle_conflict(app: &mut App, code: crate::input::KeyCode) -> anyhow::Result<bool> {
     use crate::runner::progress::OperationDecision;
     match &mut app.mode {
-        Mode::Conflict { path: _, selected } => {
+        Mode::Conflict { path: _, selected, apply_all } => {
             match code {
                 KeyCode::Left => {
                     if *selected > 0 { *selected -= 1; }
                 }
                 KeyCode::Right => {
-                    if *selected < 4 { *selected += 1; }
+                    if *selected < 2 { *selected += 1; }
+                }
+                KeyCode::Char(' ') => {
+                    // Toggle the "Apply to all" checkbox
+                    *apply_all = !*apply_all;
                 }
                 KeyCode::Enter => {
                     let decision = match *selected {
-                        0 => OperationDecision::Overwrite,
-                        1 => OperationDecision::Skip,
-                        2 => OperationDecision::OverwriteAll,
-                        3 => OperationDecision::SkipAll,
+                        0 => if *apply_all { OperationDecision::OverwriteAll } else { OperationDecision::Overwrite },
+                        1 => if *apply_all { OperationDecision::SkipAll } else { OperationDecision::Skip },
                         _ => OperationDecision::Cancel,
                     };
                     if let Some(tx) = &app.op_decision_tx {
@@ -57,20 +59,18 @@ fn handle_conflict(app: &mut App, code: crate::input::KeyCode) -> anyhow::Result
                     app.mode = Mode::Progress { title: "Resolving".to_string(), processed: 0, total: 0, message: "Cancelling".to_string(), cancelled: true };
                 }
                 KeyCode::Char('o') | KeyCode::Char('O') => {
-                    if let Some(tx) = &app.op_decision_tx { let _ = tx.send(OperationDecision::Overwrite); }
+                    let decision = if *apply_all { OperationDecision::OverwriteAll } else { OperationDecision::Overwrite };
+                    if let Some(tx) = &app.op_decision_tx { let _ = tx.send(decision); }
                     app.mode = Mode::Progress { title: "Resolving".to_string(), processed: 0, total: 0, message: "Applying decision".to_string(), cancelled: false };
                 }
                 KeyCode::Char('s') | KeyCode::Char('S') => {
-                    if let Some(tx) = &app.op_decision_tx { let _ = tx.send(OperationDecision::Skip); }
+                    let decision = if *apply_all { OperationDecision::SkipAll } else { OperationDecision::Skip };
+                    if let Some(tx) = &app.op_decision_tx { let _ = tx.send(decision); }
                     app.mode = Mode::Progress { title: "Resolving".to_string(), processed: 0, total: 0, message: "Applying decision".to_string(), cancelled: false };
                 }
                 KeyCode::Char('a') | KeyCode::Char('A') => {
-                    if let Some(tx) = &app.op_decision_tx { let _ = tx.send(OperationDecision::OverwriteAll); }
-                    app.mode = Mode::Progress { title: "Resolving".to_string(), processed: 0, total: 0, message: "Applying decision".to_string(), cancelled: false };
-                }
-                KeyCode::Char('k') | KeyCode::Char('K') => {
-                    if let Some(tx) = &app.op_decision_tx { let _ = tx.send(OperationDecision::SkipAll); }
-                    app.mode = Mode::Progress { title: "Resolving".to_string(), processed: 0, total: 0, message: "Applying decision".to_string(), cancelled: false };
+                    // Toggle apply_all (matches space behaviour)
+                    *apply_all = !*apply_all;
                 }
                 KeyCode::Char('c') | KeyCode::Char('C') => {
                     if let Some(tx) = &app.op_decision_tx { let _ = tx.send(OperationDecision::Cancel); }

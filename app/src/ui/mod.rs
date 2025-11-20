@@ -85,9 +85,11 @@ pub fn ui(f: &mut Frame, app: &App) {
             let content = format!("{}/{}\n{}\n\nPress Esc to cancel.", processed, total, message);
             modal::draw_popup(f, f.area(), 40, 20, title, &content);
         }
-        Mode::Conflict { path, selected } => {
-            let content = format!("Target exists: {}\n\nChoose an action:", path.display());
-            let buttons = ["Overwrite", "Skip", "Overwrite All", "Skip All", "Cancel"];
+        Mode::Conflict { path, selected, apply_all } => {
+            // Render a compact conflict dialog with a checkbox for "Apply to all"
+            let checkbox = if *apply_all { "[x] Apply to all" } else { "[ ] Apply to all" };
+            let content = format!("Target exists: {}\n\n{}\n\nChoose an action:", path.display(), checkbox);
+            let buttons = ["Overwrite", "Skip", "Cancel"];
             dialogs::draw_confirm(f, f.area(), "Conflict", &content, &buttons, *selected);
         }
         Mode::Normal => {}

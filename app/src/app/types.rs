@@ -117,6 +117,7 @@ pub enum Mode {
     Conflict {
         path: std::path::PathBuf,
         selected: usize,
+        apply_all: bool,
     },
     Input {
         prompt: String,

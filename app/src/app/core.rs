@@ -135,7 +135,7 @@ impl App {
                     if upd.conflict.is_some() {
                         // Present conflict modal to user and leave decision channel
                         if let Some(p) = &upd.conflict {
-                            self.mode = Mode::Conflict { path: p.clone(), selected: 0 };
+                            self.mode = Mode::Conflict { path: p.clone(), selected: 0, apply_all: false };
                             return;
                         }
                     }
