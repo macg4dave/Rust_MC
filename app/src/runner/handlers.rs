@@ -1,4 +1,4 @@
-use crate::app::{Action, App, InputKind, Mode, Side, SortKey};
+use crate::app::{Action, App, InputKind, Mode, Side};
 use crate::errors;
 use crate::input::KeyCode;
 use std::path::PathBuf;
@@ -27,40 +27,20 @@ fn handle_normal(app: &mut App, code: KeyCode, page_size: usize) -> anyhow::Resu
         KeyCode::PageDown => app.page_down(page_size),
         KeyCode::PageUp => app.page_up(page_size),
         KeyCode::Enter => {
-            // clone the selected entry so we don't hold immutable borrows on `app`
-            let e_opt = match app.active {
-                Side::Left => app.left.entries.get(app.left.selected).cloned(),
-                Side::Right => app.right.entries.get(app.right.selected).cloned(),
-            };
+            let panel = app.active_panel_mut();
+            let e_opt = panel.entries.get(panel.selected).cloned();
 
             if let Some(e) = e_opt {
-                let cwd_display = match app.active {
-                    Side::Left => app.left.cwd.display().to_string(),
-                    Side::Right => app.right.cwd.display().to_string(),
-                };
-
-                if e.name == cwd_display {
+                if crate::ui::panels::is_entry_header(&e) {
                     let prompt = format!("Change path (current: {}):", e.path.display());
                     app.mode = Mode::Input {
                         prompt,
                         buffer: String::new(),
                         kind: InputKind::ChangePath,
                     };
-                } else {
-                    if let Err(err) = app.enter() {
-                        let path_s = e.path.display().to_string();
-                        let msg = errors::render_io_error(&err, Some(&path_s), None, None);
-                        app.mode = Mode::Message {
-                            title: "Error".to_string(),
-                            content: msg,
-                            buttons: vec!["OK".to_string()],
-                            selected: 0,
-                        };
-                    }
-                }
-            } else {
-                if let Err(err) = app.enter() {
-                    let msg = errors::render_io_error(&err, None, None, None);
+                } else if let Err(err) = app.enter() {
+                    let path_s = e.path.display().to_string();
+                    let msg = errors::render_io_error(&err, Some(&path_s), None, None);
                     app.mode = Mode::Message {
                         title: "Error".to_string(),
                         content: msg,
@@ -68,6 +48,14 @@ fn handle_normal(app: &mut App, code: KeyCode, page_size: usize) -> anyhow::Resu
                         selected: 0,
                     };
                 }
+            } else if let Err(err) = app.enter() {
+                let msg = errors::render_io_error(&err, None, None, None);
+                app.mode = Mode::Message {
+                    title: "Error".to_string(),
+                    content: msg,
+                    buttons: vec!["OK".to_string()],
+                    selected: 0,
+                };
             }
         }
         KeyCode::Backspace => {
@@ -93,10 +81,8 @@ fn handle_normal(app: &mut App, code: KeyCode, page_size: usize) -> anyhow::Resu
             }
         }
         KeyCode::Char('d') => {
-            let e_opt = match app.active {
-                Side::Left => app.left.entries.get(app.left.selected),
-                Side::Right => app.right.entries.get(app.right.selected),
-            };
+            let panel = app.active_panel_mut();
+            let e_opt = panel.entries.get(panel.selected);
             if let Some(e) = e_opt {
                 let msg = format!("Delete {}? (y/n)", e.name);
                 app.mode = Mode::Confirm {
@@ -107,10 +93,8 @@ fn handle_normal(app: &mut App, code: KeyCode, page_size: usize) -> anyhow::Resu
             }
         }
         KeyCode::Char('c') => {
-            let e_opt = match app.active {
-                Side::Left => app.left.entries.get(app.left.selected),
-                Side::Right => app.right.entries.get(app.right.selected),
-            };
+            let panel = app.active_panel_mut();
+            let e_opt = panel.entries.get(panel.selected);
             if let Some(e) = e_opt {
                 let prompt = format!("Copy {} to:", e.name);
                 app.mode = Mode::Input {
@@ -121,10 +105,8 @@ fn handle_normal(app: &mut App, code: KeyCode, page_size: usize) -> anyhow::Resu
             }
         }
         KeyCode::Char('m') => {
-            let e_opt = match app.active {
-                Side::Left => app.left.entries.get(app.left.selected),
-                Side::Right => app.right.entries.get(app.right.selected),
-            };
+            let panel = app.active_panel_mut();
+            let e_opt = panel.entries.get(panel.selected);
             if let Some(e) = e_opt {
                 let prompt = format!("Move {} to:", e.name);
                 app.mode = Mode::Input {
@@ -149,10 +131,8 @@ fn handle_normal(app: &mut App, code: KeyCode, page_size: usize) -> anyhow::Resu
             };
         }
         KeyCode::Char('R') => {
-            let e_opt = match app.active {
-                Side::Left => app.left.entries.get(app.left.selected),
-                Side::Right => app.right.entries.get(app.right.selected),
-            };
+            let panel = app.active_panel_mut();
+            let e_opt = panel.entries.get(panel.selected);
             if let Some(e) = e_opt {
                 let prompt = format!("Rename {} to:", e.name);
                 app.mode = Mode::Input {
@@ -163,11 +143,7 @@ fn handle_normal(app: &mut App, code: KeyCode, page_size: usize) -> anyhow::Resu
             }
         }
         KeyCode::Char('s') => {
-            app.sort = match app.sort {
-                SortKey::Name => SortKey::Size,
-                SortKey::Size => SortKey::Modified,
-                SortKey::Modified => SortKey::Name,
-            };
+            app.sort = app.sort.next();
             app.refresh()?;
         }
         KeyCode::Char('S') => {
@@ -181,52 +157,38 @@ fn handle_normal(app: &mut App, code: KeyCode, page_size: usize) -> anyhow::Resu
                 Side::Right => Side::Left,
             };
         }
-        KeyCode::Home => match app.active {
-            Side::Left => app.left.selected = 0,
-            Side::Right => app.right.selected = 0,
-        },
-        KeyCode::End => match app.active {
-            Side::Left => {
-                if !app.left.entries.is_empty() {
-                    app.left.selected = app.left.entries.len() - 1
-                }
+        KeyCode::Home => {
+            app.active_panel_mut().selected = 0;
+        }
+        KeyCode::End => {
+            let panel = app.active_panel_mut();
+            if !panel.entries.is_empty() {
+                panel.selected = panel.entries.len() - 1;
             }
-            Side::Right => {
-                if !app.right.entries.is_empty() {
-                    app.right.selected = app.right.entries.len() - 1
-                }
-            }
-        },
+        }
         KeyCode::Char('p') => { /* toggle preview behavior */ }
         KeyCode::Char('t') => {
             crate::ui::colors::toggle();
         }
-        KeyCode::Char('>') => match app.active {
-            Side::Left => app.left.preview_offset = app.left.preview_offset.saturating_add(5),
-            Side::Right => app.right.preview_offset = app.right.preview_offset.saturating_add(5),
-        },
-        KeyCode::Char('<') => match app.active {
-            Side::Left => app.left.preview_offset = app.left.preview_offset.saturating_sub(5),
-            Side::Right => app.right.preview_offset = app.right.preview_offset.saturating_sub(5),
-        },
+        KeyCode::Char('>') => {
+            let panel = app.active_panel_mut();
+            panel.preview_offset = panel.preview_offset.saturating_add(5);
+        }
+        KeyCode::Char('<') => {
+            let panel = app.active_panel_mut();
+            panel.preview_offset = panel.preview_offset.saturating_sub(5);
+        }
         _ => {}
     }
     Ok(false)
 }
 
 fn handle_confirm(app: &mut App, code: KeyCode) -> anyhow::Result<bool> {
-    match &mut app.mode {
-        Mode::Confirm { on_yes, .. } => match code {
+    if let Mode::Confirm { on_yes, .. } = &mut app.mode {
+        match code {
             KeyCode::Char('y') | KeyCode::Char('Y') => {
                 // Clone the action out so we drop the borrow on app.mode
-                let action = match on_yes {
-                    Action::DeleteSelected => Action::DeleteSelected,
-                    Action::CopyTo(p) => Action::CopyTo(p.clone()),
-                    Action::MoveTo(p) => Action::MoveTo(p.clone()),
-                    Action::RenameTo(name) => Action::RenameTo(name.clone()),
-                    Action::NewFile(name) => Action::NewFile(name.clone()),
-                    Action::NewDir(name) => Action::NewDir(name.clone()),
-                };
+                let action = on_yes.clone();
                 // leave normal mode before performing file operations
                 app.mode = Mode::Normal;
                 match action {
@@ -302,31 +264,25 @@ fn handle_confirm(app: &mut App, code: KeyCode) -> anyhow::Result<bool> {
                 app.mode = Mode::Normal;
             }
             _ => {}
-        },
-        _ => {}
+        }
     }
     Ok(false)
 }
 
 fn handle_input(app: &mut App, code: KeyCode) -> anyhow::Result<bool> {
-    match &mut app.mode {
-        Mode::Input {
-            prompt: _,
-            buffer,
-            kind,
-        } => match code {
+    if let Mode::Input {
+        prompt: _,
+        buffer,
+        kind,
+    } = &mut app.mode
+    {
+        match code {
             KeyCode::Enter => {
                 // Snapshot buffer and kind, then leave Input mode so we
                 // can perform mutable operations on `app`.
                 let input = buffer.clone();
-                let kind_snapshot = match &*kind {
-                    InputKind::Copy => InputKind::Copy,
-                    InputKind::Move => InputKind::Move,
-                    InputKind::Rename => InputKind::Rename,
-                    InputKind::NewFile => InputKind::NewFile,
-                    InputKind::NewDir => InputKind::NewDir,
-                    InputKind::ChangePath => InputKind::ChangePath,
-                };
+                // `InputKind` is `Copy`, `Clone`, `Copy` so dereference directly
+                let kind_snapshot = *kind;
                 app.mode = Mode::Normal;
                 match kind_snapshot {
                     InputKind::Copy => {
@@ -376,7 +332,7 @@ fn handle_input(app: &mut App, code: KeyCode) -> anyhow::Result<bool> {
                         }
                     }
                     InputKind::NewDir => {
-                            if let Err(err) = app.new_dir(input) {
+                        if let Err(err) = app.new_dir(input) {
                             let msg = errors::render_io_error(&err, None, None, None);
                             app.mode = Mode::Message {
                                 title: "Error".to_string(),
@@ -388,31 +344,16 @@ fn handle_input(app: &mut App, code: KeyCode) -> anyhow::Result<bool> {
                     }
                     InputKind::ChangePath => {
                         let p = PathBuf::from(input);
-                        match app.active {
-                            Side::Left => {
-                                app.left.cwd = p;
-                                if let Err(err) = app.refresh() {
-                                    let msg = errors::render_io_error(&err, None, None, None);
-                                    app.mode = Mode::Message {
-                                        title: "Error".to_string(),
-                                        content: msg,
-                                        buttons: vec!["OK".to_string()],
-                                        selected: 0,
-                                    };
-                                }
-                            }
-                            Side::Right => {
-                                app.right.cwd = p;
-                                if let Err(err) = app.refresh() {
-                                    let msg = errors::render_io_error(&err, None, None, None);
-                                    app.mode = Mode::Message {
-                                        title: "Error".to_string(),
-                                        content: msg,
-                                        buttons: vec!["OK".to_string()],
-                                        selected: 0,
-                                    };
-                                }
-                            }
+                        let panel = app.active_panel_mut();
+                        panel.cwd = p;
+                        if let Err(err) = app.refresh() {
+                            let msg = errors::render_io_error(&err, None, None, None);
+                            app.mode = Mode::Message {
+                                title: "Error".to_string(),
+                                content: msg,
+                                buttons: vec!["OK".to_string()],
+                                selected: 0,
+                            };
                         }
                     }
                 }
@@ -427,8 +368,7 @@ fn handle_input(app: &mut App, code: KeyCode) -> anyhow::Result<bool> {
                 buffer.push(c);
             }
             _ => {}
-        },
-        _ => {}
+        }
     }
     Ok(false)
 }

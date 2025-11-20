@@ -1,8 +1,8 @@
 use fileZoom::fs_op::path::resolve_path;
 use fileZoom::fs_op::path::PathError;
-use tempfile::TempDir;
-use std::path::Path;
 use std::fs;
+use std::path::Path;
+use tempfile::TempDir;
 
 #[test]
 fn empty_input_is_error() {

@@ -2,8 +2,8 @@ use crossterm::execute;
 use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
-use std::io;
 use std::fmt;
+use std::io;
 use tui::backend::CrosstermBackend;
 use tui::Terminal;
 

@@ -1,6 +1,6 @@
+use std::fmt;
 use std::fs;
 use std::path::Path;
-use std::fmt;
 
 /// Errors returned from `remove_path`.
 #[derive(Debug)]
@@ -40,5 +40,3 @@ pub fn remove_path<P: AsRef<Path>>(path: P) -> Result<(), RemoveError> {
     }
     Ok(())
 }
-
-

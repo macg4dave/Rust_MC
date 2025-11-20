@@ -1,54 +1,40 @@
 use super::*;
-use std::io::Read;
+use crate::app::core::preview_helpers::{build_directory_preview, build_file_preview};
 
 impl App {
     pub fn update_preview_for(&mut self, side: Side) {
-        let panel = match side {
-            Side::Left => &mut self.left,
-            Side::Right => &mut self.right,
-        };
-        panel.preview_offset = 0;
-        if let Some(e) = panel.entries.get(panel.selected) {
+        let panel = self.panel_mut(side);
+        // Update the panel's `preview` text for the currently selected entry.
+        //
+        // For directories this is a small list of contained entries. For files
+        // this reads up to `App::MAX_PREVIEW_BYTES` bytes to avoid large
+        // memory usage. Preview updates must also reset `preview_offset` so
+        // the preview scroll position is consistent.
+        // Use the Panel API so preview/preview_offset semantics are centralized
+        // - `selected_entry` encapsulates bounds-safe access
+        // - `set_preview` resets `preview_offset` to zero
+        if let Some(e) = panel.selected_entry() {
             if e.is_dir {
-                let mut s = format!("Directory: {}\n", e.path.display());
-                if let Ok(list) = fs::read_dir(&e.path) {
-                    for ent in list.flatten().take(50) {
-                        s.push_str(&format!("{}\n", ent.file_name().to_string_lossy()));
-                    }
-                }
-                panel.preview = s;
+                let s = build_directory_preview(&e.path);
+                panel.set_preview(s);
             } else {
                 // Read up to MAX_PREVIEW_BYTES from the file for preview.
-                match fs::File::open(&e.path) {
-                    Ok(mut f) => {
-                        let mut buf = Vec::new();
-                        let read_bytes = match (&mut f)
-                            .take(App::MAX_PREVIEW_BYTES as u64)
-                            .read_to_end(&mut buf)
-                        {
-                            Ok(n) => n,
-                            Err(_) => {
-                                panel.preview = format!("Binary or unreadable file: {}", e.name);
-                                return;
-                            }
-                        };
-                        let preview = String::from_utf8_lossy(&buf).into_owned();
-                        // If file is larger than what we read, append truncation note.
-                        let truncated = match f.metadata() {
-                            Ok(md) => (md.len() as usize) > read_bytes,
-                            Err(_) => false,
-                        };
-                        if truncated {
-                            panel.preview = format!("{}\n... (truncated)", preview);
-                        } else {
-                            panel.preview = preview;
-                        }
-                    }
-                    Err(_) => panel.preview = format!("Binary or unreadable file: {}", e.name),
+                match build_file_preview(&e.path, App::MAX_PREVIEW_BYTES) {
+                    Ok(s) => panel.set_preview(s),
+                    Err(ref reason) if reason == "binary" => panel.set_preview(format!(
+                        "Binary file: {} (preview not available)",
+                        e.path.display()
+                    )),
+                    Err(_) => panel.set_preview(format!(
+                        "Cannot preview file: {} (unreadable)",
+                        e.path.display()
+                    )),
                 }
             }
         } else {
-            panel.preview.clear();
+            panel.set_preview(String::new());
         }
     }
 }
+
+// Helper tests moved to the `preview_helpers` module.

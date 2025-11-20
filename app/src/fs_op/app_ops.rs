@@ -106,9 +106,9 @@ impl crate::app::core::App {
         Ok(())
     }
 
-    fn copy_recursive(&self, src: &PathBuf, dst: &PathBuf) -> io::Result<()> {
+    fn copy_recursive(&self, src: &std::path::Path, dst: &std::path::Path) -> io::Result<()> {
         // Delegate to shared helper in `fs_op::copy` so the logic is
         // reusable and unit-testable without constructing a full `App`.
-        crate::fs_op::copy::copy_recursive(src.as_path(), dst.as_path())
+        crate::fs_op::copy::copy_recursive(src, dst)
     }
 }

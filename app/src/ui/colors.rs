@@ -21,31 +21,6 @@ pub struct Theme {
 }
 
 impl Theme {
-    /// Default (light-friendly) theme.
-    pub fn default() -> Self {
-        Theme {
-            border_active: Style::default().fg(Color::Yellow),
-            border_inactive: Style::default(),
-
-            dir_style: Style::default().fg(Color::Blue),
-            parent_style: Style::default()
-                .fg(Color::Blue)
-                .add_modifier(Modifier::ITALIC),
-
-            highlight_style: Style::default()
-                .add_modifier(Modifier::BOLD)
-                .bg(Color::Gray),
-
-            preview_block_style: Style::default(),
-
-            help_block_style: Style::default(),
-
-            header_style: Style::default()
-                .fg(Color::Magenta)
-                .add_modifier(Modifier::BOLD),
-        }
-    }
-
     /// Dark theme variant.
     pub fn dark() -> Self {
         Theme {
@@ -68,6 +43,33 @@ impl Theme {
 
             header_style: Style::default()
                 .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        }
+    }
+}
+
+impl Default for Theme {
+    /// Default (light-friendly) theme.
+    fn default() -> Self {
+        Theme {
+            border_active: Style::default().fg(Color::Yellow),
+            border_inactive: Style::default(),
+
+            dir_style: Style::default().fg(Color::Blue),
+            parent_style: Style::default()
+                .fg(Color::Blue)
+                .add_modifier(Modifier::ITALIC),
+
+            highlight_style: Style::default()
+                .add_modifier(Modifier::BOLD)
+                .bg(Color::Gray),
+
+            preview_block_style: Style::default(),
+
+            help_block_style: Style::default(),
+
+            header_style: Style::default()
+                .fg(Color::Magenta)
                 .add_modifier(Modifier::BOLD),
         }
     }

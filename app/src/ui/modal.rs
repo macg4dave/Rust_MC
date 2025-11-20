@@ -26,4 +26,3 @@ pub fn draw_modal<B: Backend>(f: &mut Frame<B>, area: Rect, prompt: &str, conten
     );
     f.render_widget(p, rect);
 }
-

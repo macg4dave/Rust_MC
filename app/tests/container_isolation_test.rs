@@ -23,7 +23,10 @@ fn container_modifies_fixture_only_inside_container() {
     // Ensure we can write to the fixtures area inside the container
     let _ = fs::remove_file(&marker);
     fs::write(&marker, "modified in container").expect("should write marker in baked fixtures");
-    assert!(marker.exists(), "marker file should exist after modification inside container");
+    assert!(
+        marker.exists(),
+        "marker file should exist after modification inside container"
+    );
 
     // Optionally read it back
     let content = fs::read_to_string(&marker).expect("read marker");

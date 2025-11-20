@@ -1,5 +1,5 @@
-use fileZoom::fs_op::files::*;
 use assert_fs::prelude::*;
+use fileZoom::fs_op::files::*;
 
 #[cfg(unix)]
 use std::os::unix::fs::{symlink, PermissionsExt};

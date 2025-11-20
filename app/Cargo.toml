@@ -41,3 +41,6 @@ predicates = "3"
 [[bin]]
 name = "make_fakefs"
 path = "src/test_helpers/make_fakefs/make_fakefs.rs"
+
+[features]
+test-helpers = []

@@ -1,5 +1,5 @@
-use std::path::{Path, PathBuf};
 use std::fmt;
+use std::path::{Path, PathBuf};
 
 /// Errors returned when creating files or directories.
 #[derive(Debug)]
@@ -40,7 +40,7 @@ pub fn create_file<P: AsRef<Path>>(path: P) -> Result<(), CreateError> {
     }
     // Create an empty file atomically by writing zero bytes via the
     // shared helper. This avoids races and leaves no partial file.
-    match crate::fs_op::helpers::atomic_write(&p.to_path_buf(), &[]) {
+    match crate::fs_op::helpers::atomic_write(p, &[]) {
         Ok(()) => Ok(()),
         Err(e) => {
             if e.kind() == std::io::ErrorKind::AlreadyExists {

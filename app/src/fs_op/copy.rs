@@ -38,5 +38,3 @@ pub(crate) fn copy_recursive(src: &Path, dst: &Path) -> io::Result<()> {
 
     Ok(())
 }
-
- 

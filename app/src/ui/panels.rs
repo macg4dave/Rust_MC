@@ -7,6 +7,7 @@ use tui::Frame;
 
 use crate::app::{Entry, Panel};
 use crate::ui::colors::current as theme_current;
+// PathBuf is intentionally not used here — keep imports minimal
 
 pub fn draw_list<B: Backend>(f: &mut Frame<B>, area: Rect, panel: &Panel, active: bool) {
     let theme = theme_current();
@@ -22,7 +23,7 @@ pub fn draw_list<B: Backend>(f: &mut Frame<B>, area: Rect, panel: &Panel, active
         .iter()
         .map(|e| {
             // Special header row: show full path across the line with distinct style
-            if e.name == panel.cwd.display().to_string() {
+            if is_entry_header(e) {
                 return crate::ui::header::render_header(&e.name);
             }
 
@@ -37,8 +38,7 @@ pub fn draw_list<B: Backend>(f: &mut Frame<B>, area: Rect, panel: &Panel, active
                 .map(|d| d.format("%Y-%m-%d %H:%M").to_string())
                 .unwrap_or_else(|| "-".to_string());
             let text = format!("{:<40.40} {:>10} {:>16}", name, size, mtime);
-            let style = if e.name == ".." {
-                // Parent entry - show as directory-like
+            let style = if is_entry_parent(e) {
                 theme.parent_style
             } else if e.is_dir {
                 theme.dir_style
@@ -113,3 +113,16 @@ pub fn format_entry_line(e: &Entry) -> String {
     format!("{:<40.40} {:>10} {:>16}", name, size, mtime)
 }
 
+/// UI helpers that detect header and parent ("..") synthetic rows.
+///
+/// These are UI-only helpers placed in the `ui` module so the core/`Entry`
+/// data type does not need to carry presentation methods. Callers that are
+/// concerned with presentation should use these helpers instead of adding
+/// methods to `Entry` itself.
+pub fn is_entry_header(e: &Entry) -> bool {
+    e.synthetic && !e.is_dir
+}
+
+pub fn is_entry_parent(e: &Entry) -> bool {
+    e.synthetic && e.is_dir && e.name == ".."
+}

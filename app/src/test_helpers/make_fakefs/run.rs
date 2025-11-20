@@ -1,8 +1,9 @@
-use std::process::Command;
 use std::fs;
+use std::process::Command;
 
 use crate::fixtures;
 
+#[allow(dead_code)]
 pub fn run_image_in_terminal(terminal_override: Option<&str>, foreground: bool) {
     let fixtures_dir = fixtures::generate_fixtures();
 
@@ -31,18 +32,23 @@ pub fn run_image_in_terminal(terminal_override: Option<&str>, foreground: bool) 
     let mut candidates: Vec<&str> = Vec::new();
     if let Some(t) = terminal_override {
         candidates.push(t);
+    } else if cfg!(target_os = "macos") {
+        candidates.extend(["osascript", "iTerm", "xterm"].iter().copied());
     } else {
-        if cfg!(target_os = "macos") {
-            candidates.extend(["osascript", "iTerm", "xterm"].iter().copied());
-        } else {
-            candidates.extend(["gnome-terminal", "xterm", "alacritty", "konsole"].iter().copied());
-        }
+        candidates.extend(
+            ["gnome-terminal", "xterm", "alacritty", "konsole"]
+                .iter()
+                .copied(),
+        );
     }
 
     for term in candidates {
         let args: Vec<String> = match term {
             "Terminal" => {
-                let script = format!("tell application \"Terminal\" to do script \"{}\"", docker_cmd.replace('"', "\\\""));
+                let script = format!(
+                    "tell application \"Terminal\" to do script \"{}\"",
+                    docker_cmd.replace('"', "\\\"")
+                );
                 vec!["-e".into(), script]
             }
             "iTerm" => {
@@ -56,7 +62,12 @@ pub fn run_image_in_terminal(terminal_override: Option<&str>, foreground: bool) 
             other => {
                 let docker_exec = format!("{}; exec bash", docker_cmd);
                 if other == "xterm" {
-                    vec!["-e".into(), "sh".into(), "-c".into(), docker_cmd.to_string()]
+                    vec![
+                        "-e".into(),
+                        "sh".into(),
+                        "-c".into(),
+                        docker_cmd.to_string(),
+                    ]
                 } else {
                     vec!["-e".into(), "bash".into(), "-lc".into(), docker_exec]
                 }
@@ -65,12 +76,13 @@ pub fn run_image_in_terminal(terminal_override: Option<&str>, foreground: bool) 
 
         let mut cmd = std::process::Command::new(term);
         cmd.args(&args);
-        match cmd.spawn() {
-            Ok(child) => {
-                println!("Launched terminal '{}' (pid={}) attached to container.", term, child.id());
-                return;
-            }
-            Err(_) => {}
+        if let Ok(child) = cmd.spawn() {
+            println!(
+                "Launched terminal '{}' (pid={}) attached to container.",
+                term,
+                child.id()
+            );
+            return;
         }
     }
 
@@ -100,8 +112,10 @@ pub fn run_image_isolated(terminal_override: Option<&str>, foreground: bool) {
     let _ = fs::remove_dir_all(&fixtures_dir);
 
     // Create a unique volume name and populate it from the built image.
-    let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs()).unwrap_or(0);
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
     let vol_name = format!("filezoom_fixtures_{}_{}", std::process::id(), stamp);
 
     let s = std::process::Command::new("docker")
@@ -126,7 +140,9 @@ pub fn run_image_isolated(terminal_override: Option<&str>, foreground: bool) {
         .expect("Failed to populate fixtures volume");
     if !status.success() {
         // Cleanup the volume before bailing out
-        let _ = std::process::Command::new("docker").args(["volume", "rm", "-f", &vol_name]).status();
+        let _ = std::process::Command::new("docker")
+            .args(["volume", "rm", "-f", &vol_name])
+            .status();
         eprintln!("Failed to populate fixtures volume");
         std::process::exit(1);
     }
@@ -137,14 +153,19 @@ pub fn run_image_isolated(terminal_override: Option<&str>, foreground: bool) {
     );
 
     if foreground {
-        println!("Running container with isolated fixtures in foreground (volume={})...", vol_name);
+        println!(
+            "Running container with isolated fixtures in foreground (volume={})...",
+            vol_name
+        );
         let status = std::process::Command::new("sh")
             .arg("-c")
             .arg(&run_cmd)
             .status()
             .expect("Failed to run docker run");
         // Remove the volume to rollback any changes.
-        let _ = std::process::Command::new("docker").args(["volume", "rm", "-f", &vol_name]).status();
+        let _ = std::process::Command::new("docker")
+            .args(["volume", "rm", "-f", &vol_name])
+            .status();
         if !status.success() {
             eprintln!("Docker run exited with non-zero status");
             std::process::exit(1);
@@ -156,13 +177,15 @@ pub fn run_image_isolated(terminal_override: Option<&str>, foreground: bool) {
     let mut candidates: Vec<&str> = Vec::new();
     if let Some(t) = terminal_override {
         candidates.push(t);
+    } else if cfg!(target_os = "macos") {
+        // prefer Terminal/iTerm and drive them via `osascript -e`.
+        candidates.extend(["Terminal", "iTerm", "xterm"].iter().copied());
     } else {
-        if cfg!(target_os = "macos") {
-            // prefer Terminal/iTerm and drive them via `osascript -e`.
-            candidates.extend(["Terminal", "iTerm", "xterm"].iter().copied());
-        } else {
-            candidates.extend(["gnome-terminal", "xterm", "alacritty", "konsole"].iter().copied());
-        }
+        candidates.extend(
+            ["gnome-terminal", "xterm", "alacritty", "konsole"]
+                .iter()
+                .copied(),
+        );
     }
 
     for term in candidates {
@@ -171,18 +194,22 @@ pub fn run_image_isolated(terminal_override: Option<&str>, foreground: bool) {
         // terminals we use their usual CLI flags.
         if cfg!(target_os = "macos") && (term == "Terminal" || term == "iTerm") {
             let script = if term == "Terminal" {
-                format!("tell application \"Terminal\" to do script \"{}\"", run_cmd.replace('"', "\\\""))
+                format!(
+                    "tell application \"Terminal\" to do script \"{}\"",
+                    run_cmd.replace('"', "\\\"")
+                )
             } else {
                 format!("tell application \"iTerm\" to create window with default profile command \"{}\"", run_cmd.replace('"', "\\\""))
             };
             let mut cmd = std::process::Command::new("osascript");
             cmd.arg("-e").arg(script);
-            match cmd.spawn() {
-                Ok(child) => {
-                    println!("Launched terminal '{}' (pid={}) attached to container.", term, child.id());
-                    return;
-                }
-                Err(_) => {}
+            if let Ok(child) = cmd.spawn() {
+                println!(
+                    "Launched terminal '{}' (pid={}) attached to container.",
+                    term,
+                    child.id()
+                );
+                return;
             }
             continue;
         }
@@ -204,12 +231,13 @@ pub fn run_image_isolated(terminal_override: Option<&str>, foreground: bool) {
 
         let mut cmd = std::process::Command::new(term);
         cmd.args(&args);
-        match cmd.spawn() {
-            Ok(child) => {
-                println!("Launched terminal '{}' (pid={}) attached to container.", term, child.id());
-                return;
-            }
-            Err(_) => {}
+        if let Ok(child) = cmd.spawn() {
+            println!(
+                "Launched terminal '{}' (pid={}) attached to container.",
+                term,
+                child.id()
+            );
+            return;
         }
     }
 
@@ -220,7 +248,9 @@ pub fn run_image_isolated(terminal_override: Option<&str>, foreground: bool) {
         .status()
         .expect("Failed to run docker run");
     // Remove the volume to rollback any changes.
-    let _ = std::process::Command::new("docker").args(["volume", "rm", "-f", &vol_name]).status();
+    let _ = std::process::Command::new("docker")
+        .args(["volume", "rm", "-f", &vol_name])
+        .status();
     if !status.success() {
         eprintln!("Docker run exited with non-zero status");
         std::process::exit(1);

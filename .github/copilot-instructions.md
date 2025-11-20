@@ -95,6 +95,8 @@ Purpose: Provide concise, repository-wide context and preferences for Copilot.
 - do not allow dead_code
 - remove any dead_code flags.
 - build and test after code changes
+- no error warnings allowed after build or test.
+- no clippy warnings allowed after build or test.
 
 
 ## Testing and PRs

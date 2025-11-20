@@ -1,9 +1,29 @@
-Refactor and update modules where appropriate.
-Identify and eliminate duplicate code.
-Remove dead or unused code.
-Add or improve comments so they clearly explain intent, not the obvious.
-Write or update tests for every important function, class, and behaviour.
-Maintain the existing style unless it’s inconsistent or unclear.
-Do not introduce breaking changes unless required to fix something.”
-what could this file be doing better?
-move files to the applicable module folder
+Refactor this Rust file with full awareness of Rust idioms, module structure, and best practices.
+
+Improve the module layout: move the file to the correct module folder or submodule if needed, or merge/split modules for clarity.
+
+Update imports: remove unused ones, tighten visibility, use pub, pub(crate), or pub(super) appropriately, and clean up re-exports.
+
+Remove duplicate logic and dead or unused code.
+
+Replace non-idiomatic patterns with idiomatic Rust (e.g., favour enums over booleans, use iterators, tighten lifetimes, reduce clones, use ? instead of unwrap, etc.).
+
+Improve naming to follow Rust conventions (snake_case, PascalCase, descriptive but concise identifiers).
+
+Strengthen type safety where possible (newtypes, enums, structs, avoiding Option<Option<T>>, reducing String where &str works, etc.).
+
+Optimise error handling: prefer custom error types or thiserror, avoid panics unless truly unrecoverable.
+
+Document intent: improve comments and add Rustdoc for public items, focusing on purpose, contracts, and caveats.
+
+Write or update tests in the appropriate tests/ folder or inline #[cfg(test)] module. Include positive cases, negative/error cases, and edge conditions.
+
+Consider performance: remove needless allocations, unnecessary clones, expensive patterns, or tight loops that could use iterators.
+
+Evaluate what this file could be doing better—design, structure, naming, safety, or performance—and make those improvements.
+
+Do not introduce breaking changes unless correcting incorrect behaviour.
+
+Delete the file if it’s obsolete or superseded.
+
+Apply all improvements directly.

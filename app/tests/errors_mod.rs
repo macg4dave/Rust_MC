@@ -24,15 +24,17 @@ fn test_already_exists() {
 
 #[test]
 fn test_move_error_uses_src_dst() {
-    let e = io::Error::new(io::ErrorKind::Other, "rename failed");
+    let e = io::Error::other("rename failed");
     let out = render_io_error(&e, None, Some("a.txt"), Some("b.txt"));
     // Templates may use different placeholder syntax; ensure the output
     // either contains the src/dst names, the original error text, or at
     // least the default message fragment.
-    assert!(out.contains("a.txt")
-        || out.contains("b.txt")
-        || out.contains("rename failed")
-        || out.contains("Unable to move")
-        || out.contains("{src}")
-        || out.contains("{dst}"));
+    assert!(
+        out.contains("a.txt")
+            || out.contains("b.txt")
+            || out.contains("rename failed")
+            || out.contains("Unable to move")
+            || out.contains("{src}")
+            || out.contains("{dst}")
+    );
 }

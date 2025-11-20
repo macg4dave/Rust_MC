@@ -1,5 +1,7 @@
-use fileZoom::input::mouse::{MouseEvent, MouseEventKind, MouseButton};
-use crossterm::event::{MouseEvent as CtME, MouseEventKind as CtKind, MouseButton as CtBtn, KeyModifiers};
+use crossterm::event::{
+    KeyModifiers, MouseButton as CtBtn, MouseEvent as CtME, MouseEventKind as CtKind,
+};
+use fileZoom::input::mouse::{MouseButton, MouseEvent, MouseEventKind};
 
 #[test]
 fn convert_left_down() {

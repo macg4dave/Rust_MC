@@ -19,12 +19,13 @@ fn select_next_prev_and_clamp() {
     let mut p = Panel::new(PathBuf::from("/"));
     // populate entries with mock entries
     p.entries = (0..5)
-        .map(|i| Entry {
-            name: format!("f{}", i),
-            path: PathBuf::from(format!("/f{}", i)),
-            is_dir: false,
-            size: 0,
-            modified: None,
+        .map(|i| {
+            Entry::file(
+                format!("f{}", i),
+                PathBuf::from(format!("/f{}", i)),
+                0,
+                None,
+            )
         })
         .collect();
     assert_eq!(p.selected, 0);
@@ -47,12 +48,13 @@ fn select_next_prev_and_clamp() {
 fn ensure_selected_visible_basic() {
     let mut p = Panel::new(PathBuf::from("/"));
     p.entries = (0..10)
-        .map(|i| Entry {
-            name: format!("f{}", i),
-            path: PathBuf::from(format!("/f{}", i)),
-            is_dir: false,
-            size: 0,
-            modified: None,
+        .map(|i| {
+            Entry::file(
+                format!("f{}", i),
+                PathBuf::from(format!("/f{}", i)),
+                0,
+                None,
+            )
         })
         .collect();
     // viewport of 3 rows
@@ -81,12 +83,13 @@ fn ensure_selected_visible_zero_height_and_single_item() {
     // zero height: should reset offset to 0 regardless of entries
     let mut p = Panel::new(PathBuf::from("/"));
     p.entries = (0..3)
-        .map(|i| Entry {
-            name: format!("f{}", i),
-            path: PathBuf::from(format!("/f{}", i)),
-            is_dir: false,
-            size: 0,
-            modified: None,
+        .map(|i| {
+            Entry::file(
+                format!("f{}", i),
+                PathBuf::from(format!("/f{}", i)),
+                0,
+                None,
+            )
         })
         .collect();
     p.offset = 2;
@@ -97,12 +100,13 @@ fn ensure_selected_visible_zero_height_and_single_item() {
     // single item viewport: ensure offset keeps selected visible
     let mut q = Panel::new(PathBuf::from("/"));
     q.entries = (0..1)
-        .map(|i| Entry {
-            name: format!("g{}", i),
-            path: PathBuf::from(format!("/g{}", i)),
-            is_dir: false,
-            size: 0,
-            modified: None,
+        .map(|i| {
+            Entry::file(
+                format!("g{}", i),
+                PathBuf::from(format!("/g{}", i)),
+                0,
+                None,
+            )
         })
         .collect();
     q.selected = 0;

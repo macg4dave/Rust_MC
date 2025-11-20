@@ -1,8 +1,8 @@
+use handlebars::Handlebars;
+use serde_json::Value as JsonValue;
 use std::collections::HashMap;
 use std::sync::OnceLock;
 use toml::Value;
-use handlebars::Handlebars;
-use serde_json::Value as JsonValue;
 
 /// Parse a TOML string and extract the `[errors]` table into a String map.
 ///
@@ -18,7 +18,10 @@ fn parse_templates_from_str(raw: &str) -> HashMap<String, String> {
             if let Some(errors) = val.get("errors") {
                 if let Some(table) = errors.as_table() {
                     for (k, v) in table.iter() {
-                        let s = v.as_str().map(|s| s.to_string()).unwrap_or_else(|| v.to_string());
+                        let s = v
+                            .as_str()
+                            .map(|s| s.to_string())
+                            .unwrap_or_else(|| v.to_string());
                         map.insert(k.clone(), s);
                     }
                 }
@@ -47,7 +50,10 @@ fn templates() -> &'static HashMap<String, String> {
 
 /// Helper: return either the template from the map or the provided default.
 fn template_or_default(key: &str, default: &str) -> String {
-    templates().get(key).cloned().unwrap_or_else(|| default.to_string())
+    templates()
+        .get(key)
+        .cloned()
+        .unwrap_or_else(|| default.to_string())
 }
 
 /// Simple placeholder formatter.
@@ -61,7 +67,7 @@ fn template_or_default(key: &str, default: &str) -> String {
 static HB: OnceLock<Handlebars<'static>> = OnceLock::new();
 
 fn handlebars() -> &'static Handlebars<'static> {
-    HB.get_or_init(|| Handlebars::new())
+    HB.get_or_init(Handlebars::new)
 }
 
 fn format_template(tmpl: &str, pairs: &[(&str, &str)]) -> String {
@@ -100,23 +106,23 @@ pub fn render_io_error(
     match err.kind() {
         ErrorKind::NotFound => {
             let tmpl = template_or_default("path_not_found", "Path not found: {path}");
-            return format_template(&tmpl, &[("path", path.unwrap_or("<unknown>"))]);
+            format_template(&tmpl, &[("path", path.unwrap_or("<unknown>"))])
         }
         ErrorKind::PermissionDenied => {
             let tmpl = template_or_default("permission_denied", "Permission denied: {path}");
-            return format_template(&tmpl, &[("path", path.unwrap_or("<unknown>"))]);
+            format_template(&tmpl, &[("path", path.unwrap_or("<unknown>"))])
         }
         ErrorKind::AlreadyExists => {
             let tmpl = template_or_default("already_exists", "Target already exists: {path}");
-            return format_template(
+            format_template(
                 &tmpl,
                 &[("path", path.or(src).or(dst).unwrap_or("<unknown>"))],
-            );
+            )
         }
         ErrorKind::InvalidInput => {
             let tmpl = template_or_default("invalid_input", "Invalid input: {details}");
             let details = format!("{}", err);
-            return format_template(&tmpl, &[("details", &details)]);
+            format_template(&tmpl, &[("details", &details)])
         }
         ErrorKind::BrokenPipe
         | ErrorKind::UnexpectedEof
@@ -124,15 +130,13 @@ pub fn render_io_error(
         | ErrorKind::TimedOut => {
             let tmpl = template_or_default("io_error", "I/O error: {err}");
             let err_s = format!("{}", err);
-            return format_template(&tmpl, &[("err", &err_s)]);
+            format_template(&tmpl, &[("err", &err_s)])
         }
         _ => {
             // For other errors, attempt to map a move-specific template, then generic.
             if let (Some(s), Some(d)) = (src, dst) {
-                let tmpl = template_or_default(
-                    "unable_to_move",
-                    "Unable to move {src} to {dst} ({err})",
-                );
+                let tmpl =
+                    template_or_default("unable_to_move", "Unable to move {src} to {dst} ({err})");
                 let err_s = format!("{}", err);
                 return format_template(&tmpl, &[("src", s), ("dst", d), ("err", &err_s)]);
             }
@@ -144,5 +148,3 @@ pub fn render_io_error(
         }
     }
 }
-
-

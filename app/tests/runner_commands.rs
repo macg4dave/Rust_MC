@@ -1,8 +1,8 @@
-use fileZoom::runner::commands::perform_action;
-use fileZoom::app::App;
-use fileZoom::app::Action;
 use assert_fs::prelude::*;
 use assert_fs::TempDir;
+use fileZoom::app::Action;
+use fileZoom::app::App;
+use fileZoom::runner::commands::perform_action;
 use std::env;
 use std::sync::Mutex;
 

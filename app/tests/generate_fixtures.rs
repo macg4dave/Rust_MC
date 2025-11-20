@@ -6,13 +6,25 @@ use std::path::PathBuf;
 fn rust_generate_fixtures_creates_manifest_and_files() {
     // Run the make_fakefs binary with the generate-fixtures command
     let mut cmd = cargo_bin_cmd!("make_fakefs");
-    let output = cmd.arg("generate-fixtures").assert().get_output().stdout.clone();
+    let output = cmd
+        .arg("generate-fixtures")
+        .assert()
+        .get_output()
+        .stdout
+        .clone();
     let out = String::from_utf8_lossy(&output);
 
     // Expect printed output with manifest path (new Rust generator prints "Wrote N entries to <manifest>")
-    assert!(out.contains("Wrote"), "output did not indicate manifest: {}", out);
+    assert!(
+        out.contains("Wrote"),
+        "output did not indicate manifest: {}",
+        out
+    );
     let start = out.find("Wrote").expect("Wrote marker");
-    let manifest_part = out[start..].split_whitespace().last().expect("manifest path");
+    let manifest_part = out[start..]
+        .split_whitespace()
+        .last()
+        .expect("manifest path");
     let manifest = PathBuf::from(manifest_part);
 
     // manifest should exist and contain at least the four deterministic entries

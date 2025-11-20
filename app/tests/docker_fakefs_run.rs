@@ -30,8 +30,15 @@ fn docker_fakefs_run() {
 
     // Create a temporary fixtures directory with many files and folders.
     let mut fixtures_dir: PathBuf = env::temp_dir();
-    let stamp = SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
-    fixtures_dir.push(format!("filezoom_docker_test_{}_{}", std::process::id(), stamp));
+    let stamp = SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    fixtures_dir.push(format!(
+        "filezoom_docker_test_{}_{}",
+        std::process::id(),
+        stamp
+    ));
 
     if fixtures_dir.exists() {
         let _ = fs::remove_dir_all(&fixtures_dir);
@@ -50,7 +57,10 @@ fn docker_fakefs_run() {
     // Build the docker image using the repository/build helpers. The helper
     // will run `cargo build --release` and `docker build` as needed.
     let current = env::current_dir().expect("failed to get current dir");
-    match fileZoom::building::make_fakefs_lib::build_image_with_fixtures(Some(&fixtures_dir), &current) {
+    match fileZoom::building::make_fakefs_lib::build_image_with_fixtures(
+        Some(&fixtures_dir),
+        &current,
+    ) {
         Ok(()) => println!("Built filezoom-fakefs image successfully."),
         Err(e) => panic!("Failed to build Docker image: {}", e),
     }
@@ -120,7 +130,9 @@ fn docker_fakefs_run() {
             .expect("Failed to populate fixtures volume");
         if !status.success() {
             // Cleanup the volume before bailing out
-            let _ = Command::new("docker").args(["volume", "rm", "-f", &vol_name]).status();
+            let _ = Command::new("docker")
+                .args(["volume", "rm", "-f", &vol_name])
+                .status();
             panic!("Failed to populate fixtures volume");
         }
 
@@ -134,7 +146,10 @@ fn docker_fakefs_run() {
             vol = vol_name
         );
 
-        println!("Running container with isolated fixtures (volume={})...", vol_name);
+        println!(
+            "Running container with isolated fixtures (volume={})...",
+            vol_name
+        );
 
         let run_status = Command::new("sh")
             .arg("-c")
@@ -143,7 +158,9 @@ fn docker_fakefs_run() {
             .expect("Failed to run docker run");
 
         // Remove the volume to rollback any changes.
-        let _ = Command::new("docker").args(["volume", "rm", "-f", &vol_name]).status();
+        let _ = Command::new("docker")
+            .args(["volume", "rm", "-f", &vol_name])
+            .status();
 
         if !run_status.success() {
             panic!("Docker run exited with non-zero status");

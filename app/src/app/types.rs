@@ -1,4 +1,5 @@
 use chrono::{DateTime, Local};
+use std::fmt;
 use std::path::PathBuf;
 
 /// A directory entry displayed in a panel.
@@ -6,22 +7,112 @@ use std::path::PathBuf;
 /// This is a lightweight representation used by the UI layer; it intentionally
 /// stores a `PathBuf` and a precomputed `name` to avoid repeated allocations
 /// while rendering.
+///
+/// Additionally `synthetic` distinguishes entries synthesized by the UI
+/// logic (header and parent entries) from real filesystem entries.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Entry {
+    /// Display name for the entry (filename or `..` or the full path in the
+    /// case of the header row).
     pub name: String,
+    /// Full path to the entry.
     pub path: PathBuf,
+    /// Whether the entry is a directory. Header rows are not directories.
     pub is_dir: bool,
+    /// File size in bytes. Directories typically have `0` here.
     pub size: u64,
+    /// Optional last-modified timestamp.
     pub modified: Option<DateTime<Local>>,
+    /// True for entries that are synthesized by the UI (header and parent).
+    pub synthetic: bool,
+}
+
+impl Entry {
+    /// Construct a regular file entry.
+    pub fn file(
+        name: impl Into<String>,
+        path: PathBuf,
+        size: u64,
+        modified: Option<DateTime<Local>>,
+    ) -> Self {
+        Entry {
+            name: name.into(),
+            path,
+            is_dir: false,
+            size,
+            modified,
+            synthetic: false,
+        }
+    }
+
+    /// Construct a regular directory entry.
+    pub fn directory(
+        name: impl Into<String>,
+        path: PathBuf,
+        modified: Option<DateTime<Local>>,
+    ) -> Self {
+        Entry {
+            name: name.into(),
+            path,
+            is_dir: true,
+            size: 0,
+            modified,
+            synthetic: false,
+        }
+    }
+
+    /// Construct the header entry shown at the top of a panel. The `name`
+    /// will contain the full path and `synthetic` is set to `true`.
+    pub fn header(path: PathBuf) -> Self {
+        let display = path.display().to_string();
+        Entry {
+            name: display,
+            path: path.clone(),
+            is_dir: false,
+            size: 0,
+            modified: None,
+            synthetic: true,
+        }
+    }
+
+    /// Construct a parent (`..`) entry pointing to `parent`.
+    pub fn parent(parent: PathBuf) -> Self {
+        Entry {
+            name: "..".to_string(),
+            path: parent,
+            is_dir: true,
+            size: 0,
+            modified: None,
+            synthetic: true,
+        }
+    }
+
+    // NOTE: UI-only helpers like `is_header` and `is_parent` were intentionally
+    // moved into the UI layer. This keeps `Entry` as a domain struct and
+    // prevents the core data model from depending on presentation concerns.
 }
 
 /// Keys by which listings may be sorted.
-#[derive(PartialEq, Eq, Clone, Copy, Debug)]
+#[derive(PartialEq, Eq, Clone, Copy, Debug, Default)]
 pub enum SortKey {
+    #[default]
     Name,
     Size,
     Modified,
 }
+
+impl SortKey {
+    /// Cycle to the next sorting key in the order Name -> Size -> Modified -> Name
+    pub fn next(self) -> Self {
+        match self {
+            SortKey::Name => SortKey::Size,
+            SortKey::Size => SortKey::Modified,
+            SortKey::Modified => SortKey::Name,
+        }
+    }
+}
+
+// Default derived via `#[default]` on the `Name` variant.
 
 /// Mode represents the global UI mode/state the application may be in.
 ///
@@ -29,8 +120,9 @@ pub enum SortKey {
 /// - `Confirm` is used for yes/no prompts (for example, delete).
 /// - `Message` displays an information dialog with buttons.
 /// - `Input` requests textual input from the user.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub enum Mode {
+    #[default]
     Normal,
     Confirm {
         msg: String,
@@ -49,6 +141,8 @@ pub enum Mode {
         kind: InputKind,
     },
 }
+
+// Default for Mode is derived via `#[default]` on the `Normal` variant.
 
 /// The kind of input requested from the user. This guides how the input buffer
 /// is interpreted (e.g. a destination path vs a filename).
@@ -76,6 +170,19 @@ pub enum Action {
     NewDir(String),
 }
 
+impl fmt::Display for Action {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Action::DeleteSelected => write!(f, "DeleteSelected"),
+            Action::CopyTo(p) => write!(f, "CopyTo({})", p.display()),
+            Action::MoveTo(p) => write!(f, "MoveTo({})", p.display()),
+            Action::RenameTo(name) => write!(f, "RenameTo({})", name),
+            Action::NewFile(name) => write!(f, "NewFile({})", name),
+            Action::NewDir(name) => write!(f, "NewDir({})", name),
+        }
+    }
+}
+
 /// Which panel is active.
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub enum Side {
@@ -83,4 +190,21 @@ pub enum Side {
     Right,
 }
 
+impl fmt::Display for Side {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Side::Left => write!(f, "Left"),
+            Side::Right => write!(f, "Right"),
+        }
+    }
+}
 
+impl fmt::Display for SortKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            SortKey::Name => write!(f, "Name"),
+            SortKey::Size => write!(f, "Size"),
+            SortKey::Modified => write!(f, "Modified"),
+        }
+    }
+}

@@ -1,5 +1,5 @@
-use fileZoom::fs_op::files::*;
 use assert_fs::prelude::*;
+use fileZoom::fs_op::files::*;
 
 #[test]
 fn basic_copy_move_rename_remove() -> Result<(), Box<dyn std::error::Error>> {

@@ -1,18 +1,25 @@
 use std::env;
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
-use std::io::Write;
 // filetime::FileTime was previously used here; advanced.rs handles filetime
 // modifications now, so we no longer need this import.
-use rand::RngCore;
 use crate::advanced;
+use rand::RngCore;
 
 /// Create a temporary fixtures directory and populate it with many files used by tests.
 pub fn generate_fixtures() -> PathBuf {
     let mut fixtures_dir = env::temp_dir();
-    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
-    fixtures_dir.push(format!("filezoom_fixtures_{}_{}", std::process::id(), stamp));
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    fixtures_dir.push(format!(
+        "filezoom_fixtures_{}_{}",
+        std::process::id(),
+        stamp
+    ));
 
     if fixtures_dir.exists() {
         let _ = fs::remove_dir_all(&fixtures_dir);
@@ -21,17 +28,23 @@ pub fn generate_fixtures() -> PathBuf {
 
     let manifest = fixtures_dir.join("fixtures_manifest.txt");
     let _ = std::fs::remove_file(&manifest);
-    let mut manifest_file = std::fs::File::create(&manifest).expect("failed to create manifest file");
+    let mut manifest_file =
+        std::fs::File::create(&manifest).expect("failed to create manifest file");
 
     let total: usize = 500;
-    println!("Generating {} fixtures under {}", total, fixtures_dir.display());
+    println!(
+        "Generating {} fixtures under {}",
+        total,
+        fixtures_dir.display()
+    );
 
     let mut emit = |p: &Path| {
         let rel = p.strip_prefix(&fixtures_dir).unwrap_or(p);
         let _ = writeln!(manifest_file, "{}", rel.to_string_lossy());
     };
 
-    fs::create_dir_all(fixtures_dir.join("deep/level1/level2")).expect("failed to create deep structure");
+    fs::create_dir_all(fixtures_dir.join("deep/level1/level2"))
+        .expect("failed to create deep structure");
     let f1 = fixtures_dir.join("emoji-😊");
     fs::write(&f1, "emoji content").expect("failed to write emoji file");
     emit(&f1);
@@ -49,11 +62,7 @@ pub fn generate_fixtures() -> PathBuf {
     emit(&f4);
 
     let mut count_created: usize = 4;
-    let mut files: Vec<PathBuf> = Vec::new();
-    files.push(f1);
-    files.push(f2);
-    files.push(f3);
-    files.push(f4);
+    let mut files: Vec<PathBuf> = vec![f1, f2, f3, f4];
 
     let create_file_of_size = |path: &Path, size: usize| {
         if let Some(dir) = path.parent() {
@@ -63,18 +72,20 @@ pub fn generate_fixtures() -> PathBuf {
             match fs::create_dir_all(dir) {
                 Ok(_) => {}
                 Err(e) => {
-                    if e.kind() == std::io::ErrorKind::NotFound || e.kind() == std::io::ErrorKind::Other || e.kind() == std::io::ErrorKind::NotADirectory {
+                    if e.kind() == std::io::ErrorKind::NotFound
+                        || e.kind() == std::io::ErrorKind::Other
+                        || e.kind() == std::io::ErrorKind::NotADirectory
+                    {
                         // Walk ancestors to find any path that exists and is a file,
                         // remove it, then retry.
                         for anc in dir.ancestors() {
-                            if anc == Path::new("") { continue; }
-                            match fs::metadata(anc) {
-                                Ok(md) => {
-                                    if md.is_file() {
-                                        let _ = fs::remove_file(anc);
-                                    }
+                            if anc == Path::new("") {
+                                continue;
+                            }
+                            if let Ok(md) = fs::metadata(anc) {
+                                if md.is_file() {
+                                    let _ = fs::remove_file(anc);
                                 }
-                                Err(_) => {}
                             }
                         }
                         // Retry creating dirs; ignore error on second attempt to let
@@ -90,7 +101,12 @@ pub fn generate_fixtures() -> PathBuf {
         }
         if size == 0 {
             if let Err(e) = fs::File::create(path) {
-                eprintln!("failed to create empty file {:?} parent={:?}: {}", path, path.parent(), e);
+                eprintln!(
+                    "failed to create empty file {:?} parent={:?}: {}",
+                    path,
+                    path.parent(),
+                    e
+                );
                 panic!("failed to create empty file: {}", e);
             }
             return;
@@ -98,7 +114,12 @@ pub fn generate_fixtures() -> PathBuf {
         let mut f = match fs::File::create(path) {
             Ok(h) => h,
             Err(e) => {
-                eprintln!("failed to create file {:?} parent={:?}: {}", path, path.parent(), e);
+                eprintln!(
+                    "failed to create file {:?} parent={:?}: {}",
+                    path,
+                    path.parent(),
+                    e
+                );
                 panic!("failed to create file: {}", e);
             }
         };
@@ -106,7 +127,8 @@ pub fn generate_fixtures() -> PathBuf {
         let mut written = 0usize;
         while written < size {
             let to_write = std::cmp::min(block.len(), size - written);
-            f.write_all(&block[..to_write]).expect("failed to write block");
+            f.write_all(&block[..to_write])
+                .expect("failed to write block");
             written += to_write;
         }
         let _ = f.set_len(size as u64);
@@ -125,9 +147,12 @@ pub fn generate_fixtures() -> PathBuf {
                 match c {
                     '/' | '\0' => out.push('_'),
                     ' ' | '\t' | '\n' | '\r' => out.push('_'),
-                    '\'' | '"' | '`' | '\\' | '*' | '?' | '<' | '>' | '|' | '&' | ';' | '$' | '(' | ')' | '{' | '}' | '[' | ']' | ':' | ',' => out.push('_'),
+                    '\'' | '"' | '`' | '\\' | '*' | '?' | '<' | '>' | '|' | '&' | ';' | '$'
+                    | '(' | ')' | '{' | '}' | '[' | ']' | ':' | ',' => out.push('_'),
                     '%' | '#' | '@' | '+' => out.push('_'),
-                    c if c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '_' => out.push(c),
+                    c if c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '_' => {
+                        out.push(c)
+                    }
                     _ => out.push('_'),
                 }
             } else {
@@ -136,14 +161,18 @@ pub fn generate_fixtures() -> PathBuf {
             }
         }
         let trimmed = out.trim_matches('_').to_string();
-        if trimmed.is_empty() { "file_invalid".to_string() } else { trimmed }
+        if trimmed.is_empty() {
+            "file_invalid".to_string()
+        } else {
+            trimmed
+        }
     }
 
     while count_created < total {
         // Build a directory path with a mix of ASCII and occasional
         // multilingual components. We keep both a sanitized (ASCII-only)
         // path and a native path so we can create both variants.
-        let depth = (rng.next_u64() as usize % 8) ;
+        let depth = rng.next_u64() as usize % 8;
         let mut dir_sanitized = PathBuf::new();
         let mut dir_native = PathBuf::new();
         let mut native_used = false;
@@ -186,7 +215,10 @@ pub fn generate_fixtures() -> PathBuf {
 
         // Optionally create a native-name variant in the native directory
         if native_used || (rng.next_u32() % 100) < 50 {
-            let native_name: String = name.chars().map(|c| if c == '/' || c == '\0' { '_' } else { c }).collect();
+            let native_name: String = name
+                .chars()
+                .map(|c| if c == '/' || c == '\0' { '_' } else { c })
+                .collect();
             let native_path = fixtures_dir.join(&dir_native).join(&native_name);
             if native_path != fullpath {
                 create_file_of_size(&native_path, size);
@@ -247,7 +279,7 @@ pub fn generate_fixtures() -> PathBuf {
                 created_any.push(c.clone());
             }
         }
-        files.extend(created_any.into_iter());
+        files.extend(created_any);
     }
 
     println!("Wrote {} entries to {}", count_created, manifest.display());
@@ -260,7 +292,10 @@ pub fn apply_permissions(fixtures_dir: &Path) {
         use std::os::unix::fs::PermissionsExt;
         let file = fixtures_dir.join("file1.txt");
         if !file.exists() {
-            println!("Permission target {} does not exist; skipping", file.display());
+            println!(
+                "Permission target {} does not exist; skipping",
+                file.display()
+            );
             return;
         }
         let perms = fs::Permissions::from_mode(0o644);

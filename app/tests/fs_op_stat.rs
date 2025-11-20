@@ -1,4 +1,4 @@
-use fileZoom::fs_op::stat::{exists, is_file, is_dir};
+use fileZoom::fs_op::stat::{exists, is_dir, is_file};
 use tempfile::tempdir;
 
 #[test]

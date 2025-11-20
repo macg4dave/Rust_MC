@@ -1,5 +1,7 @@
-use fileZoom::app::{App, Mode, Panel, Side, SortKey};
 use assert_fs::prelude::*;
+use fileZoom::app::{App, Mode, Panel, Side, SortKey};
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 
 #[test]
@@ -40,7 +42,7 @@ fn sort_name_puts_dirs_first() {
         .left
         .entries
         .get(1)
-        .map(|e| e.name == "..")
+        .map(|e| fileZoom::ui::panels::is_entry_parent(e))
         .unwrap_or(false)
     {
         1
@@ -84,6 +86,170 @@ fn preview_truncates_large_file() {
     app.left.selected = idx.unwrap();
     app.update_preview_for(Side::Left);
     assert!(app.left.preview.contains("(truncated)"));
+
+    temp.close().unwrap();
+}
+
+#[test]
+fn preview_shows_directory_entries_limited() {
+    let temp = assert_fs::TempDir::new().unwrap();
+    let d = temp.child("d");
+    d.create_dir_all().unwrap();
+    // Create more items than the preview limit
+    let total = 60usize;
+    for i in 0..total {
+        d.child(format!("f{}.txt", i)).write_str("x").unwrap();
+    }
+
+    let cwd = temp.path().to_path_buf();
+    let mut app = App {
+        left: Panel::new(cwd.clone()),
+        right: Panel::new(cwd.clone()),
+        active: Side::Left,
+        mode: Mode::Normal,
+        sort: SortKey::Name,
+        sort_desc: false,
+    };
+    app.refresh().unwrap();
+
+    // find index of d in entries
+    let mut idx = None;
+    for (i, e) in app.left.entries.iter().enumerate() {
+        if e.name == "d" {
+            idx = Some(i);
+            break;
+        }
+    }
+    assert!(idx.is_some());
+    app.left.selected = idx.unwrap();
+    // precondition: set non-zero preview to ensure update overwrites it
+    app.left.preview = "old".to_string();
+    app.update_preview_for(Side::Left);
+
+    // header + at most MAX_DIR_PREVIEW_ENTRIES lines
+    let lines: Vec<&str> = app.left.preview.lines().collect();
+    assert!(lines.len() <= 1 + fileZoom::app::core::preview_helpers::MAX_DIR_PREVIEW_ENTRIES);
+    // ensure at least one file name is present
+    assert!(app.left.preview.contains("f0.txt"));
+
+    temp.close().unwrap();
+}
+
+#[test]
+fn preview_resets_preview_offset() {
+    let temp = assert_fs::TempDir::new().unwrap();
+    let f = temp.child("small.txt");
+    f.write_str("hello\nthere\n").unwrap();
+
+    let cwd = temp.path().to_path_buf();
+    let mut app = App {
+        left: Panel::new(cwd.clone()),
+        right: Panel::new(cwd.clone()),
+        active: Side::Left,
+        mode: Mode::Normal,
+        sort: SortKey::Name,
+        sort_desc: false,
+    };
+    app.refresh().unwrap();
+
+    // find index of small.txt
+    let mut idx = None;
+    for (i, e) in app.left.entries.iter().enumerate() {
+        if e.name == "small.txt" {
+            idx = Some(i);
+            break;
+        }
+    }
+    assert!(idx.is_some());
+    app.left.selected = idx.unwrap();
+    app.left.preview_offset = 10; // set non-zero offset
+    app.update_preview_for(Side::Left);
+    assert_eq!(app.left.preview_offset, 0);
+
+    temp.close().unwrap();
+}
+
+#[test]
+fn preview_handles_very_long_filename() {
+    let temp = assert_fs::TempDir::new().unwrap();
+    let mut name = String::from("verylong");
+    // create a long file name (200 chars)
+    while name.len() < 200 {
+        name.push('x');
+    }
+    let f = temp.child(&name);
+    f.write_str("hello").unwrap();
+
+    let cwd = temp.path().to_path_buf();
+    let mut app = App {
+        left: Panel::new(cwd.clone()),
+        right: Panel::new(cwd.clone()),
+        active: Side::Left,
+        mode: Mode::Normal,
+        sort: SortKey::Name,
+        sort_desc: false,
+    };
+    app.refresh().unwrap();
+
+    // find index of long filename
+    let mut idx = None;
+    for (i, e) in app.left.entries.iter().enumerate() {
+        if e.name == name {
+            idx = Some(i);
+            break;
+        }
+    }
+    assert!(idx.is_some());
+    app.left.selected = idx.unwrap();
+    app.update_preview_for(Side::Left);
+    assert!(app.left.preview.contains("hello"));
+
+    temp.close().unwrap();
+}
+
+// See `core.rs` unit tests for tests of private helpers like `selected_index`.
+
+#[test]
+#[cfg(unix)]
+fn preview_unreadable_file_shows_message() {
+    use std::fs;
+    let temp = assert_fs::TempDir::new().unwrap();
+    let f = temp.child("cannot_read.txt");
+    f.write_str("hello").unwrap();
+
+    let p = f.path();
+    let mut perms = fs::metadata(p).unwrap().permissions();
+    // remove all permissions so file cannot be opened
+    perms.set_mode(0o000);
+    fs::set_permissions(p, perms.clone()).unwrap();
+
+    let cwd = temp.path().to_path_buf();
+    let mut app = App {
+        left: Panel::new(cwd.clone()),
+        right: Panel::new(cwd.clone()),
+        active: Side::Left,
+        mode: Mode::Normal,
+        sort: SortKey::Name,
+        sort_desc: false,
+    };
+    app.refresh().unwrap();
+
+    // find index of cannot_read.txt
+    let mut idx = None;
+    for (i, e) in app.left.entries.iter().enumerate() {
+        if e.name == "cannot_read.txt" {
+            idx = Some(i);
+            break;
+        }
+    }
+    assert!(idx.is_some());
+    app.left.selected = idx.unwrap();
+    app.update_preview_for(Side::Left);
+    assert!(app.left.preview.contains("Cannot preview file"));
+
+    // restore perms so cleanup can occur
+    perms.set_mode(0o600);
+    fs::set_permissions(p, perms).unwrap();
 
     temp.close().unwrap();
 }

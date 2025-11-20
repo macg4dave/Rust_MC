@@ -1,8 +1,8 @@
+use std::fmt;
 use std::fs::{self, OpenOptions};
 use std::path::{Path, PathBuf};
 use std::process;
 use std::time::SystemTime;
-use std::fmt;
 
 use std::result::Result as StdResult;
 
@@ -81,7 +81,10 @@ impl From<std::io::Error> for PermissionError {
 /// This function is best-effort and is intended to give the TUI enough
 /// information to decide how to present actions to the user. It avoids making
 /// destructive changes by default.
-pub fn inspect_permissions<P: AsRef<Path>>(path: P, test_write: bool) -> StdResult<PermissionInfo, PermissionError> {
+pub fn inspect_permissions<P: AsRef<Path>>(
+    path: P,
+    test_write: bool,
+) -> StdResult<PermissionInfo, PermissionError> {
     let path = path.as_ref().to_path_buf();
     let mut info = PermissionInfo::new(path.clone());
 
@@ -111,36 +114,32 @@ pub fn inspect_permissions<P: AsRef<Path>>(path: P, test_write: bool) -> StdResu
         // conservative check: if metadata says readonly then false, otherwise
         // optimistic true for files and directories (will still fail at action time)
         info.can_write = !info.readonly;
+    } else if info.is_dir {
+        // attempt to create a probe file inside the directory
+        let probe_name = format!(
+            ".perm_probe_{}_{}",
+            process::id(),
+            SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or_default()
+        );
+        let probe_path = path.join(probe_name);
+        // Use atomic write for the probe so that the creation is safe and
+        // the implementation leaves no partial files. Remove the probe
+        // afterwards and treat the sequence as success only if both
+        // operations succeed.
+        let created = match crate::fs_op::helpers::atomic_write(&probe_path, b".") {
+            Ok(()) => fs::remove_file(&probe_path).is_ok(),
+            Err(_) => false,
+        };
+        info.can_write = created;
     } else {
-        if info.is_dir {
-            // attempt to create a probe file inside the directory
-            let probe_name = format!(
-                ".perm_probe_{}_{}",
-                process::id(),
-                SystemTime::now()
-                    .duration_since(SystemTime::UNIX_EPOCH)
-                    .map(|d| d.as_nanos())
-                    .unwrap_or_default()
-            );
-            let probe_path = path.join(probe_name);
-            // Use atomic write for the probe so that the creation is safe and
-            // the implementation leaves no partial files. Remove the probe
-            // afterwards and treat the sequence as success only if both
-            // operations succeed.
-            let created = match crate::fs_op::helpers::atomic_write(&probe_path, b".") {
-                Ok(()) => fs::remove_file(&probe_path).is_ok(),
-                Err(_) => false,
-            };
-            info.can_write = created;
-        } else {
-            info.can_write = OpenOptions::new().write(true).open(&path).is_ok();
-        }
+        info.can_write = OpenOptions::new().write(true).open(&path).is_ok();
     }
 
     Ok(info)
 }
-
-
 
 /// Attempt to change permissions (Unix only).
 ///

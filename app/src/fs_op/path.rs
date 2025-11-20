@@ -1,5 +1,5 @@
-use std::path::{Path, PathBuf};
 use std::fmt;
+use std::path::{Path, PathBuf};
 
 /// Errors that can occur when resolving a user-supplied path.
 #[derive(Debug, PartialEq, Eq)]
@@ -71,10 +71,8 @@ fn expand_tilde(input: &str) -> Option<PathBuf> {
     let mut p = PathBuf::from(home);
     if !rest.is_empty() {
         // Trim leading separators so `~/foo` and `~foo` behave sensibly.
-        let trimmed = rest.trim_start_matches(|c| c == '/' || c == '\\');
+        let trimmed = rest.trim_start_matches(|c| ['/', '\\'].contains(&c));
         p.push(trimmed);
     }
     Some(p)
 }
-
-

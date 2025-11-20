@@ -11,4 +11,3 @@ pub fn perform_action(app: &mut App, action: Action) -> std::io::Result<()> {
         Action::NewDir(name) => app.new_dir(name),
     }
 }
-

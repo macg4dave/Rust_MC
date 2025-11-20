@@ -1,7 +1,7 @@
-use std::fs;
-use std::path::{Path, PathBuf};
 use std::fmt;
+use std::fs;
 use std::io;
+use std::path::{Path, PathBuf};
 
 /// Errors returned by move/copy helpers.
 #[derive(Debug)]
@@ -88,11 +88,14 @@ pub fn move_path<P: AsRef<Path>, Q: AsRef<Path>>(src: P, dest: Q) -> Result<(), 
     };
 
     match fs::rename(s, &final_dest) {
-        Ok(_) => return Ok(()),
+        Ok(_) => Ok(()),
         Err(_e) => {
             // try fallback
             copy_path(s, &final_dest).map_err(|ce| match ce {
-                MvError::Io(ioe) => MvError::Io(std::io::Error::new(io::ErrorKind::Other, format!("fallback copying {:?} -> {:?}: {:?}", s, final_dest, ioe))),
+                MvError::Io(ioe) => MvError::Io(io::Error::other(format!(
+                    "fallback copying {:?} -> {:?}: {:?}",
+                    s, final_dest, ioe
+                ))),
                 other => other,
             })?;
             // remove original (file or dir)
@@ -105,4 +108,3 @@ pub fn move_path<P: AsRef<Path>, Q: AsRef<Path>>(src: P, dest: Q) -> Result<(), 
         }
     }
 }
-

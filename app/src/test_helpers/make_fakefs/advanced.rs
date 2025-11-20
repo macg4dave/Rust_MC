@@ -1,8 +1,8 @@
-use std::path::{Path, PathBuf};
-use rand::RngCore;
-use std::process::Command;
 use filetime::FileTime;
+use rand::RngCore;
 use std::fs;
+use std::path::{Path, PathBuf};
+use std::process::Command;
 
 /// Generate a test filename using the same heuristics previously embedded in the big function.
 pub fn gen_name(i: usize, rng: &mut impl RngCore) -> String {
@@ -32,7 +32,12 @@ pub fn gen_name(i: usize, rng: &mut impl RngCore) -> String {
 
 /// Apply a variety of optional, OS-dependent metadata and features to a generated file.
 /// This keeps that logic isolated and makes it easier to test/reuse.
-pub fn apply_advanced_attrs(rng: &mut impl RngCore, files: &Vec<PathBuf>, fullpath: &Path, fixtures_dir: &Path) -> Vec<PathBuf> {
+pub fn apply_advanced_attrs(
+    rng: &mut impl RngCore,
+    files: &[PathBuf],
+    fullpath: &Path,
+    fixtures_dir: &Path,
+) -> Vec<PathBuf> {
     let mut created: Vec<PathBuf> = Vec::new();
     #[cfg(unix)]
     {
@@ -44,7 +49,7 @@ pub fn apply_advanced_attrs(rng: &mut impl RngCore, files: &Vec<PathBuf>, fullpa
                 .arg(&xname)
                 .arg("-v")
                 .arg(&xval)
-                .arg(&fullpath)
+                .arg(fullpath)
                 .status();
         }
 
@@ -60,29 +65,32 @@ pub fn apply_advanced_attrs(rng: &mut impl RngCore, files: &Vec<PathBuf>, fullpa
             };
             use std::os::unix::fs::PermissionsExt;
             let perms = fs::Permissions::from_mode(mode);
-            let _ = fs::set_permissions(&fullpath, perms);
+            let _ = fs::set_permissions(fullpath, perms);
         }
 
         if rng.next_u32() % 100 < 50 {
-            let days = (rng.next_u64() as i64 % 365) as i64;
-            let secs = (rng.next_u64() as i64 % 86400) as i64;
-            let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as i64;
-            let new_time = now - (days * 86400 + secs) as i64;
+            let days = rng.next_u64() as i64 % 365;
+            let secs = rng.next_u64() as i64 % 86400;
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs() as i64;
+            let new_time = now - (days * 86400 + secs);
             let ft = FileTime::from_unix_time(new_time, 0);
-            let _ = filetime::set_file_mtime(&fullpath, ft);
+            let _ = filetime::set_file_mtime(fullpath, ft);
         }
 
-        if rng.next_u32() % 100 < 10 {
-            if Command::new("setfacl").arg("-h").status().is_ok() {
-                let user = if let Ok(out) = Command::new("id").arg("-un").output() {
-                    String::from_utf8_lossy(&out.stdout).trim().to_string()
-                } else { String::from("root") };
-                let _ = Command::new("setfacl")
-                    .arg("-m")
-                    .arg(format!("u:{}:r--", user))
-                    .arg(&fullpath)
-                    .status();
-            }
+        if rng.next_u32() % 100 < 10 && Command::new("setfacl").arg("-h").status().is_ok() {
+            let user = if let Ok(out) = Command::new("id").arg("-un").output() {
+                String::from_utf8_lossy(&out.stdout).trim().to_string()
+            } else {
+                String::from("root")
+            };
+            let _ = Command::new("setfacl")
+                .arg("-m")
+                .arg(format!("u:{}:r--", user))
+                .arg(fullpath)
+                .status();
         }
 
         // occasionally create a symlink pointing to an existing file
@@ -98,8 +106,18 @@ pub fn apply_advanced_attrs(rng: &mut impl RngCore, files: &Vec<PathBuf>, fullpa
 
         // create FIFO occasionally
         if rng.next_u64() % 1000 < 8 {
-            let dir_for_fifo = fullpath.parent().unwrap_or(&fixtures_dir).to_path_buf();
-            let name = format!("fifo_{}_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos(), rng.next_u32());
+            let dir_for_fifo = fullpath
+                .parent()
+                .map(|p| p.to_path_buf())
+                .unwrap_or_else(|| fixtures_dir.to_path_buf());
+            let name = format!(
+                "fifo_{}_{}",
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos(),
+                rng.next_u32()
+            );
             let p = dir_for_fifo.join(name);
             let _ = Command::new("mkfifo").arg(&p).status();
             created.push(p);

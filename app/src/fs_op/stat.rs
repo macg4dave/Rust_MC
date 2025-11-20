@@ -14,5 +14,3 @@ pub fn is_dir<P: AsRef<Path>>(path: P) -> bool {
 pub fn is_file<P: AsRef<Path>>(path: P) -> bool {
     path.as_ref().is_file()
 }
-
-

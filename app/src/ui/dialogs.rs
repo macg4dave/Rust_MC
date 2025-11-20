@@ -174,5 +174,3 @@ pub fn draw_error<B: Backend>(
     );
     f.render_widget(buttons_para, buttons_rect);
 }
-
-

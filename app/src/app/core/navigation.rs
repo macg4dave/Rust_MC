@@ -1,88 +1,53 @@
 use super::*;
 
 impl App {
+    /// Ensure the currently selected entry is visible within the active
+    /// panel's viewport. Delegates to the panel-level helper so the scrolling
+    /// behaviour is defined in one place and can be unit-tested independently.
     pub fn ensure_selection_visible(&mut self, list_height: usize) {
-        let panel = match self.active {
-            Side::Left => &mut self.left,
-            Side::Right => &mut self.right,
-        };
-        if panel.selected < panel.offset {
-            panel.offset = panel.selected;
-        } else if panel.selected >= panel.offset + list_height {
-            panel.offset = panel.selected + 1 - list_height;
-        }
+        self.active_panel_mut().ensure_selected_visible(list_height);
     }
 
+    /// Move active selection down by one entry.
     pub fn next(&mut self, list_height: usize) {
-        match self.active {
-            Side::Left => {
-                if !self.left.entries.is_empty() {
-                    self.left.selected = min(self.left.selected + 1, self.left.entries.len() - 1);
-                }
-            }
-            Side::Right => {
-                if !self.right.entries.is_empty() {
-                    self.right.selected =
-                        min(self.right.selected + 1, self.right.entries.len() - 1);
-                }
-            }
+        let panel = self.active_panel_mut();
+        if !panel.entries.is_empty() {
+            panel.select_next();
         }
         self.ensure_selection_visible(list_height);
         self.update_preview_for(self.active);
     }
 
+    /// Move active selection up by one entry.
     pub fn previous(&mut self, list_height: usize) {
-        match self.active {
-            Side::Left => {
-                if !self.left.entries.is_empty() {
-                    self.left.selected = self.left.selected.saturating_sub(1);
-                }
-            }
-            Side::Right => {
-                if !self.right.entries.is_empty() {
-                    self.right.selected = self.right.selected.saturating_sub(1);
-                }
-            }
+        let panel = self.active_panel_mut();
+        if !panel.entries.is_empty() {
+            panel.select_prev();
         }
         self.ensure_selection_visible(list_height);
         self.update_preview_for(self.active);
     }
 
+    /// Move active selection down by `list_height` (page down) with clamping.
     pub fn page_down(&mut self, list_height: usize) {
-        match self.active {
-            Side::Left => {
-                if !self.left.entries.is_empty() {
-                    self.left.selected = min(
-                        self.left.selected + list_height,
-                        self.left.entries.len() - 1,
-                    );
-                }
-            }
-            Side::Right => {
-                if !self.right.entries.is_empty() {
-                    self.right.selected = min(
-                        self.right.selected + list_height,
-                        self.right.entries.len() - 1,
-                    );
-                }
-            }
+        let panel = self.active_panel_mut();
+        if !panel.entries.is_empty() {
+            let new = std::cmp::min(
+                panel.selected.saturating_add(list_height),
+                panel.entries.len().saturating_sub(1),
+            );
+            panel.selected = new;
         }
         self.ensure_selection_visible(list_height);
         self.update_preview_for(self.active);
     }
 
+    /// Move active selection up by `list_height` (page up) with saturating
+    /// subtraction so it never underflows.
     pub fn page_up(&mut self, list_height: usize) {
-        match self.active {
-            Side::Left => {
-                if !self.left.entries.is_empty() {
-                    self.left.selected = self.left.selected.saturating_sub(list_height);
-                }
-            }
-            Side::Right => {
-                if !self.right.entries.is_empty() {
-                    self.right.selected = self.right.selected.saturating_sub(list_height);
-                }
-            }
+        let panel = self.active_panel_mut();
+        if !panel.entries.is_empty() {
+            panel.selected = panel.selected.saturating_sub(list_height);
         }
         self.ensure_selection_visible(list_height);
         self.update_preview_for(self.active);

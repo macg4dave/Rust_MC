@@ -1,5 +1,5 @@
-use fileZoom::input::keyboard::is_printable_key;
 use crossterm::event::{KeyCode as CtKeyCode, KeyEvent as CtKeyEvent, KeyModifiers};
+use fileZoom::input::keyboard::is_printable_key;
 
 #[test]
 fn printable_char_detected() {

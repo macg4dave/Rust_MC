@@ -28,4 +28,3 @@ pub fn draw_menu<B: Backend>(f: &mut Frame<B>, area: Rect, _app: &App) {
     let menu = Paragraph::new(spans).block(Block::default());
     f.render_widget(menu, area);
 }
-

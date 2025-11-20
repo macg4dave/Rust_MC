@@ -1,15 +1,14 @@
 // make_fakefs.rs: Rust CLI to build/deploy and run a Docker image with a fake filesystem for testing fileZoom and starts the program in the docker image
 // Usage: cargo run --bin make_fakefs -- <command>
 
-
 mod advanced;
 mod build;
 mod fixtures;
 mod run;
 
 use std::env;
-use std::process::{exit};
 use std::path::PathBuf;
+use std::process::exit;
 
 // fixtures, run and build logic have been moved into the modules under this directory to make
 // the binary easier to maintain. Public test helpers remain available through the binary
@@ -78,9 +77,4 @@ fn main() {
             exit(1);
         }
     }
-
-
-
 }
-
-

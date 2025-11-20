@@ -1,24 +1,17 @@
-use fileZoom::ui::panels::format_entry_line;
-use fileZoom::app::Entry;
 use chrono::Local;
+use fileZoom::app::Entry;
+use fileZoom::ui::panels::format_entry_line;
 
 #[test]
 fn format_entry_line_for_file_and_dir() {
     let now = Local::now();
-    let file = Entry {
-        name: "file.txt".to_string(),
-        path: std::path::PathBuf::from("/tmp/file.txt"),
-        is_dir: false,
-        size: 1234,
-        modified: Some(now),
-    };
-    let dir = Entry {
-        name: "somedir".to_string(),
-        path: std::path::PathBuf::from("/tmp/somedir"),
-        is_dir: true,
-        size: 0,
-        modified: None,
-    };
+    let file = Entry::file(
+        "file.txt",
+        std::path::PathBuf::from("/tmp/file.txt"),
+        1234,
+        Some(now),
+    );
+    let dir = Entry::directory("somedir", std::path::PathBuf::from("/tmp/somedir"), None);
     let fline = format_entry_line(&file);
     assert!(fline.contains("file.txt"));
     assert!(fline.contains("1234"));
