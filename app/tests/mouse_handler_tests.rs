@@ -1,4 +1,4 @@
-use fileZoom::app::{App, Panel, Side};
+use fileZoom::app::{App, Side};
 use fileZoom::runner::handlers;
 use fileZoom::Entry;
 use fileZoom::input::mouse::{MouseEvent, MouseEventKind};

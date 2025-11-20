@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::env;
 use std::fs;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 /// User-editable settings persisted to a TOML file.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -12,6 +12,8 @@ pub struct Settings {
     pub show_hidden: bool,
     pub left_panel_width: u16,
     pub right_panel_width: u16,
+    /// Ordered list of context actions shown in the context menu.
+    pub context_actions: Vec<String>,
 }
 
 impl Default for Settings {
@@ -21,6 +23,7 @@ impl Default for Settings {
             show_hidden: false,
             left_panel_width: 40,
             right_panel_width: 40,
+            context_actions: vec!["View".to_string(), "Edit".to_string(), "Permissions".to_string(), "Cancel".to_string()],
         }
     }
 }

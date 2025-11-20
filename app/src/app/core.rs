@@ -15,6 +15,10 @@ pub struct App {
     pub sort_desc: bool,
     pub menu_index: usize,
     pub menu_focused: bool,
+    /// Whether the preview pane is visible in the UI.
+    pub preview_visible: bool,
+    /// User settings loaded from disk.
+    pub settings: crate::app::settings::write_settings::Settings,
     /// Receiver for progress updates from background file operations.
     pub op_progress_rx: Option<std::sync::mpsc::Receiver<crate::runner::progress::ProgressUpdate>>,
     /// Cancel flag shared with background operation thread (if any).
@@ -105,12 +109,19 @@ impl App {
             sort_desc: false,
             menu_index: 0,
             menu_focused: false,
+            preview_visible: false,
+            settings: crate::app::settings::write_settings::Settings::default(),
             op_progress_rx: None,
             op_cancel_flag: None,
             op_decision_tx: None,
         };
         app.refresh()?;
         Ok(app)
+    }
+
+    /// Toggle the preview pane visibility.
+    pub fn toggle_preview(&mut self) {
+        self.preview_visible = !self.preview_visible;
     }
 
     /// Poll an active progress receiver and update the `Mode::Progress` state
@@ -307,6 +318,8 @@ mod tests {
             sort_desc: false,
             menu_index: 0,
             menu_focused: false,
+            preview_visible: false,
+            settings: crate::app::settings::write_settings::Settings::default(),
             op_progress_rx: None,
             op_cancel_flag: None,
             op_decision_tx: None,
@@ -369,6 +382,8 @@ mod tests {
             sort_desc: false,
             menu_index: 0,
             menu_focused: false,
+            preview_visible: false,
+            settings: crate::app::settings::write_settings::Settings::default(),
             op_progress_rx: None,
             op_cancel_flag: None,
             op_decision_tx: None,

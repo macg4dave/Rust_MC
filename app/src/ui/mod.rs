@@ -34,17 +34,36 @@ pub fn ui(f: &mut Frame, app: &App) {
         )
         .split(f.area());
 
-    let main_chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
-        .split(chunks[2]);
+    // If preview is enabled reserve space for a third pane for the preview.
+    let main_chunks = if app.preview_visible {
+        Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Percentage(40),
+                Constraint::Percentage(40),
+                Constraint::Percentage(20),
+            ]
+            .as_ref())
+            .split(chunks[2])
+    } else {
+        Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+            .split(chunks[2])
+    };
 
     panels::draw_list(f, main_chunks[0], &app.left, app.active == crate::app::Side::Left);
     panels::draw_list(f, main_chunks[1], &app.right, app.active == crate::app::Side::Right);
 
+    if app.preview_visible {
+        // Show preview for the active panel in the third column
+        let active_panel = app.active_panel();
+        panels::draw_preview(f, main_chunks[2], active_panel);
+    }
+
     // bottom help bar
     let theme = crate::ui::colors::current();
-    let help = Paragraph::new("F1:menu  ?:help  ↑/↓:navigate  PgUp/PgDn:page  Enter:open  Backspace:up  Tab:switch panels  F5:copy  F6:move  d:delete  c:copy(to...)  m:move(to...)  R:rename  n:new file  N:new dir  s:sort  q:quit")
+    let help = Paragraph::new("F1:menu  F3:actions/right-click  ?:help  ↑/↓:navigate  PgUp/PgDn:page  Enter:open  Backspace:up  Tab:switch panels  F5:copy  F6:move  d:delete  c:copy(to...)  m:move(to...)  R:rename  n:new file  N:new dir  s:sort  q:quit")
         .block(Block::default().borders(Borders::ALL).style(theme.help_block_style));
     f.render_widget(help, chunks[3]);
 
@@ -91,6 +110,11 @@ pub fn ui(f: &mut Frame, app: &App) {
             let content = format!("Target exists: {}\n\n{}\n\nChoose an action:", path.display(), checkbox);
             let buttons = ["Overwrite", "Skip", "Cancel"];
             dialogs::draw_confirm(f, f.area(), "Conflict", &content, &buttons, *selected);
+        }
+        Mode::ContextMenu { title, options, selected, path } => {
+            // Reuse the confirm dialog for a small action menu. Convert options to &str slices.
+            let btn_refs: Vec<&str> = options.iter().map(|s| s.as_str()).collect();
+            dialogs::draw_confirm(f, f.area(), title, &format!("{}", path.display()), &btn_refs, *selected);
         }
         Mode::Normal => {}
     }

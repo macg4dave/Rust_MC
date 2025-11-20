@@ -1,0 +1,106 @@
+Step-by-step setup
+Make the roadmap the source of truth
+Single file: Keep a canonical ROADMAP.md (or docs/roadmap.md) in the repo.
+
+Anchor sections: Add clear sections that match implementation areas (UI/Panels, VFS, Input/Keybindings, Dialogs/Modals, Settings, Tests).
+
+Version: Update the roadmap whenever priorities change, and reference commit hashes for milestones.
+
+Keep the roadmap in visible context
+Open file: Always have ROADMAP.md open alongside the code you’re editing.
+
+Pin context: Start conversations by pasting or summarizing the relevant section into the chat, then ask for guidance tied to that section.
+
+Narrow scope: Quote the specific feature block so the assistant focuses (e.g., “Quick View / Preview Pane” and “Mapping to fileZoom Code”).
+
+Use persistent, reusable prompt templates
+Project primer: Begin each coding session with a short primer that tells the assistant what fileZoom is, where features live, and how to weigh effort vs. payoff.
+
+Code
+Project: fileZoom (Rust, dual-panel file manager)
+Context: Use ROADMAP.md as the source of truth. Respect effort/payoff notes.
+Mapping: UI in panels.rs/mod.rs; VFS in app/src/fs_op/*; input in keyboard.rs/mouse.rs; commands in commands.rs/runner/handlers.rs; modals in modal.rs/ui/dialogs.rs; settings in app/src/settings/*; tests under tests/.
+Style: Incremental, test-first where feasible, small PR-sized changes.
+Goal: Align all suggestions to the roadmap priorities and file mapping.
+Task scaffolding: A standard “implement feature” prompt that requests plan, diffs, tests, and follow-ups.
+
+Code
+Using ROADMAP.md:
+Feature: Quick View / Preview Pane (small–medium effort)
+Files to touch: panels.rs, mod.rs
+Request:
+1) Outline the minimal viable implementation (UI state, rendering hooks, keybinding: F3).
+2) Propose function signatures and data structures.
+3) Provide code snippets and a safe, incremental patch plan.
+4) Add tests (panel rendering, selection updates, viewer toggle).
+5) Note any follow-up tasks (perf, syntax highlighting).
+Working session pattern
+For a single feature (example: Quick View)
+Kickoff: Paste the roadmap section and mapping relevant to Quick View.
+
+Ask precisely: “Based on ROADMAP.md and the code mapping, propose an incremental plan for a preview pane in panels.rs, including state, rendering, keybinding, and tests.”
+
+Constrain output: Request small, reviewable steps and file-scoped changes, not sweeping refactors.
+
+Confirm alignment: After the plan, ask “Show where this aligns with ‘What’s Especially Valuable’ and why it’s small–medium effort.”
+
+Apply changes: Implement step 1, then ask for step 2 with the updated code context.
+
+Keep the model anchored
+Re-state constraints: At the start of each new thread, repeat the project primer.
+
+Quote code paths: Always reference the exact files (e.g., app/src/fs_op/copy.rs) and the roadmap’s mapping.
+
+Link commits: After each PR or commit, tell the assistant what changed and what’s next, tied to roadmap items.
+
+High-quality prompt examples
+Feature design prompt
+Code
+Using ROADMAP.md (sections: Quick View, UI/Panels mapping), propose a minimal preview pane:
+- UI state shape in panels.rs (structs/enums).
+- Rendering changes and toggle logic.
+- Keybinding (F3) mapped via keyboard.rs.
+- Error handling and empty-state behavior.
+- Tests: selection updates, large files, binary file guard.
+Return: step-by-step plan + code snippets scoped to panels.rs and keyboard.rs.
+Code review prompt
+Code
+Given ROADMAP.md priorities and this diff (panels.rs), review for:
+- Alignment with small–medium effort.
+- Clear separation of concerns (no VFS changes yet).
+- Test coverage adequacy per ROADMAP tests section.
+- Follow-up tasks list with estimated effort.
+Issue generation prompt
+Code
+From ROADMAP.md → “Operation Progress Modal/Queue,” draft 3 GitHub issues:
+- Minimal modal for copy/move with progress.
+- Queue abstraction in app/src/fs_op/*.
+- Suspend/cancel semantics and tests.
+Include file paths, acceptance criteria, and small PR scope.
+Make context stick across sessions
+Session header: Start each day with a short “Today’s focus” header referencing the exact roadmap items you’re tackling.
+
+Workspace summary: Ask the assistant to produce a one-paragraph summary linking current work to roadmap milestones, then reuse that summary in later prompts.
+
+Progress log: Maintain a docs/roadmap_progress.md that lists completed and in-progress items with links to commits/PRs; paste the relevant section when asking for the next steps.
+
+Pitfalls and how to avoid them
+Too broad prompts: Avoid “Implement Quick View” without quoting roadmap sections. Use specific file names and acceptance criteria.
+
+Unscoped changes: Ask for small, incremental patches and explicit test coverage to prevent sweeping refactors.
+
+Context drift: Re-include the roadmap snippet at the start of new threads; keep ROADMAP.md open and referenced.
+
+Misaligned priorities: Explicitly tell the assistant to respect the effort/payoff tags when proposing solutions.
+
+If you’d like, I can turn your current roadmap into a compact primer block you can paste at the start of every session, plus tailored templates for the top three features you plan to tackle first.
+
+
+Using ROADMAP.md:
+Feature: QContext Menus & File Actions: Right-click or hotkey-driven context actions (permissions, edit, view).
+Request:
+1) Outline the minimal viable implementation (UI state, rendering hooks, keybinding: F3).
+2) Propose function signatures and data structures.
+3) incremental patch plan.
+4) Add tests (panel rendering, selection updates, viewer toggle).
+5) Note any follow-up tasks.

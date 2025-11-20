@@ -1,6 +1,6 @@
 use assert_fs::prelude::*;
 use fileZoom::app::{App, Panel, Side, SortKey};
-use std::path::PathBuf;
+// `PathBuf` not required by name here; remove explicit import to avoid warning
 use predicates::prelude::*;
 use std::time::Duration;
 use fileZoom::runner::handlers;
@@ -30,6 +30,8 @@ fn multi_select_copy_background() {
         sort_desc: false,
         menu_index: 0,
         menu_focused: false,
+        preview_visible: false,
+        settings: fileZoom::app::settings::write_settings::Settings::default(),
         op_progress_rx: None,
         op_cancel_flag: None,
         op_decision_tx: None,

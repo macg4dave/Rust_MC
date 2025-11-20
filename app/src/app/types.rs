@@ -119,6 +119,14 @@ pub enum Mode {
         selected: usize,
         apply_all: bool,
     },
+    /// Context menu shown for a selected entry. `options` are the action
+    /// labels (e.g. View, Edit, Permissions). `path` is the target entry.
+    ContextMenu {
+        title: String,
+        options: Vec<String>,
+        selected: usize,
+        path: std::path::PathBuf,
+    },
     Input {
         prompt: String,
         buffer: String,

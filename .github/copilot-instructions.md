@@ -67,7 +67,7 @@ Run everything manually:
 -   Keep functions focused and modular (single responsibility).
 -   Avoid monolithic files; split logically when needed.
 -   Maintain clarity over cleverness.
-
+-   All .rs files must be less than 800 chars long.
 ------------------------------------------------------------------------
 
 📚 Tests

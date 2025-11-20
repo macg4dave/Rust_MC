@@ -11,6 +11,10 @@ pub fn run_app() -> anyhow::Result<()> {
 
     // Initialize app using the current working directory.
     let mut app = App::new()?;
+    // Load persisted settings from disk if available and apply.
+    if let Ok(s) = crate::app::settings::load_settings() {
+        app.settings = s;
+    }
 
     // Main event loop
     loop {
