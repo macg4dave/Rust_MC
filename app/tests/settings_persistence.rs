@@ -15,6 +15,7 @@ fn save_and_load_settings_roundtrip() {
         show_hidden: true,
         left_panel_width: 30,
         right_panel_width: 50,
+        context_actions: Settings::default().context_actions.clone(),
     };
 
     save_settings(&s).expect("save should succeed");
