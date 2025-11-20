@@ -5,6 +5,7 @@
 pub mod core;
 pub mod settings;
 pub mod types;
+pub mod text_editors;
 
 use std::path::PathBuf;
 

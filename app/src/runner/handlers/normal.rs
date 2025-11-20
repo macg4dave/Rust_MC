@@ -11,13 +11,13 @@ pub fn handle_normal(app: &mut App, code: KeyCode, page_size: usize) -> anyhow::
     if app.command_line.is_some() {
         return crate::ui::command_line::handle_input(app, code);
     }
-    match code {
-        KeyCode::Char('q') => return Ok(true),
-        KeyCode::Down => app.next(page_size),
-        KeyCode::Up => app.previous(page_size),
-        KeyCode::PageDown => app.page_down(page_size),
-        KeyCode::PageUp => app.page_up(page_size),
-        KeyCode::Enter if !app.menu_focused => {
+    match &code {
+        &KeyCode::Char('q') => return Ok(true),
+        &KeyCode::Down => app.next(page_size),
+        &KeyCode::Up => app.previous(page_size),
+        &KeyCode::PageDown => app.page_down(page_size),
+        &KeyCode::PageUp => app.page_up(page_size),
+        &KeyCode::Enter if !app.menu_focused => {
             let panel = app.active_panel_mut();
             if panel.selected == 0 {
                 let prompt = format!("Change path (current: {}):", panel.cwd.display());
@@ -58,7 +58,7 @@ pub fn handle_normal(app: &mut App, code: KeyCode, page_size: usize) -> anyhow::
                 }
             }
         }
-        KeyCode::Backspace => {
+        &KeyCode::Backspace => {
             if let Err(err) = app.go_up() {
                 let msg = errors::render_io_error(&err, None, None, None);
                 app.mode = Mode::Message {
@@ -70,7 +70,7 @@ pub fn handle_normal(app: &mut App, code: KeyCode, page_size: usize) -> anyhow::
                 };
             }
         }
-        KeyCode::Char('r') => {
+        &KeyCode::Char('r') => {
             if let Err(err) = app.refresh() {
                 let msg = errors::render_io_error(&err, None, None, None);
                 app.mode = Mode::Message {
@@ -82,7 +82,7 @@ pub fn handle_normal(app: &mut App, code: KeyCode, page_size: usize) -> anyhow::
                 };
             }
         }
-        KeyCode::Char('d') => {
+        &KeyCode::Char('d') => {
             let panel = app.active_panel_mut();
             let e_opt = panel.selected_entry();
             if let Some(e) = e_opt {
@@ -94,7 +94,7 @@ pub fn handle_normal(app: &mut App, code: KeyCode, page_size: usize) -> anyhow::
                 };
             }
         }
-        KeyCode::Char('c') => {
+        &KeyCode::Char('c') => {
             let panel = app.active_panel_mut();
             let e_opt = panel.selected_entry();
             if let Some(e) = e_opt {
@@ -106,7 +106,7 @@ pub fn handle_normal(app: &mut App, code: KeyCode, page_size: usize) -> anyhow::
                 };
             }
         }
-        KeyCode::Char('m') => {
+        &KeyCode::Char('m') => {
             let panel = app.active_panel_mut();
             let e_opt = panel.selected_entry();
             if let Some(e) = e_opt {
@@ -118,21 +118,21 @@ pub fn handle_normal(app: &mut App, code: KeyCode, page_size: usize) -> anyhow::
                 };
             }
         }
-        KeyCode::Char('n') => {
+        &KeyCode::Char('n') => {
             app.mode = Mode::Input {
                 prompt: "New file name:".to_string(),
                 buffer: String::new(),
                 kind: InputKind::NewFile,
             };
         }
-        KeyCode::Char('N') => {
+        &KeyCode::Char('N') => {
             app.mode = Mode::Input {
                 prompt: "New dir name:".to_string(),
                 buffer: String::new(),
                 kind: InputKind::NewDir,
             };
         }
-        KeyCode::Char('R') => {
+        &KeyCode::Char('R') => {
             let panel = app.active_panel_mut();
             let e_opt = panel.entries.get(panel.selected);
             if let Some(e) = e_opt {
@@ -144,24 +144,24 @@ pub fn handle_normal(app: &mut App, code: KeyCode, page_size: usize) -> anyhow::
                 };
             }
         }
-        KeyCode::Char('s') => {
+        &KeyCode::Char('s') => {
             app.sort = app.sort.next();
             app.refresh()?;
         }
-        KeyCode::Char('S') => {
+        &KeyCode::Char('S') => {
             app.sort_desc = !app.sort_desc;
             app.refresh()?;
         }
-        KeyCode::Char(' ') => {
+        &KeyCode::Char(' ') => {
             app.active_panel_mut().toggle_selection();
         }
-        KeyCode::Tab => {
+        &KeyCode::Tab => {
             app.active = match app.active {
                 Side::Left => Side::Right,
                 Side::Right => Side::Left,
             };
         }
-        KeyCode::F(5) => {
+        &KeyCode::F(5) => {
             let src_paths: Vec<PathBuf> = {
                 let panel = app.active_panel();
                 let mut v = Vec::new();
@@ -343,7 +343,7 @@ pub fn handle_normal(app: &mut App, code: KeyCode, page_size: usize) -> anyhow::
                 });
             });
         }
-        KeyCode::F(6) => {
+        &KeyCode::F(6) => {
             let src_paths: Vec<PathBuf> = {
                 let panel = app.active_panel();
                 let mut v = Vec::new();
@@ -521,7 +521,7 @@ pub fn handle_normal(app: &mut App, code: KeyCode, page_size: usize) -> anyhow::
                 });
             });
         }
-        KeyCode::F(1) => {
+        &KeyCode::F(1) => {
             app.menu_focused = !app.menu_focused;
         }
         KeyCode::Left if app.menu_focused => {

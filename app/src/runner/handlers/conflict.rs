@@ -1,5 +1,6 @@
 use crate::app::{App, Mode};
 use crate::input::KeyCode;
+use crate::app::settings::keybinds;
 use crate::runner::progress::OperationDecision;
 
 pub fn handle_conflict(app: &mut App, code: KeyCode) -> anyhow::Result<bool> {
@@ -8,21 +9,18 @@ pub fn handle_conflict(app: &mut App, code: KeyCode) -> anyhow::Result<bool> {
             path: _,
             selected,
             apply_all,
-        } => match code {
-            KeyCode::Left => {
+        } => {
+            if keybinds::is_left(&code) {
                 if *selected > 0 {
                     *selected -= 1;
                 }
-            }
-            KeyCode::Right => {
+            } else if keybinds::is_right(&code) {
                 if *selected < 2 {
                     *selected += 1;
                 }
-            }
-            KeyCode::Char(' ') => {
+            } else if keybinds::is_toggle_selection(&code) {
                 *apply_all = !*apply_all;
-            }
-            KeyCode::Enter => {
+            } else if keybinds::is_enter(&code) {
                 let decision = match *selected {
                     0 => {
                         if *apply_all {
@@ -50,8 +48,7 @@ pub fn handle_conflict(app: &mut App, code: KeyCode) -> anyhow::Result<bool> {
                     message: "Applying decision".to_string(),
                     cancelled: false,
                 };
-            }
-            KeyCode::Esc => {
+            } else if keybinds::is_esc(&code) {
                 if let Some(tx) = &app.op_decision_tx {
                     let _ = tx.send(OperationDecision::Cancel);
                 }
@@ -62,8 +59,7 @@ pub fn handle_conflict(app: &mut App, code: KeyCode) -> anyhow::Result<bool> {
                     message: "Cancelling".to_string(),
                     cancelled: true,
                 };
-            }
-            KeyCode::Char('o') | KeyCode::Char('O') => {
+            } else if keybinds::is_char(&code, 'o') || keybinds::is_char(&code, 'O') {
                 let decision = if *apply_all {
                     OperationDecision::OverwriteAll
                 } else {
@@ -79,8 +75,7 @@ pub fn handle_conflict(app: &mut App, code: KeyCode) -> anyhow::Result<bool> {
                     message: "Applying decision".to_string(),
                     cancelled: false,
                 };
-            }
-            KeyCode::Char('s') | KeyCode::Char('S') => {
+            } else if keybinds::is_char(&code, 's') || keybinds::is_char(&code, 'S') {
                 let decision = if *apply_all {
                     OperationDecision::SkipAll
                 } else {
@@ -96,11 +91,9 @@ pub fn handle_conflict(app: &mut App, code: KeyCode) -> anyhow::Result<bool> {
                     message: "Applying decision".to_string(),
                     cancelled: false,
                 };
-            }
-            KeyCode::Char('a') | KeyCode::Char('A') => {
+            } else if keybinds::is_char(&code, 'a') || keybinds::is_char(&code, 'A') {
                 *apply_all = !*apply_all;
-            }
-            KeyCode::Char('c') | KeyCode::Char('C') => {
+            } else if keybinds::is_char(&code, 'c') || keybinds::is_char(&code, 'C') {
                 if let Some(tx) = &app.op_decision_tx {
                     let _ = tx.send(OperationDecision::Cancel);
                 }
@@ -112,7 +105,6 @@ pub fn handle_conflict(app: &mut App, code: KeyCode) -> anyhow::Result<bool> {
                     cancelled: true,
                 };
             }
-            _ => {}
         },
         _ => {}
     }

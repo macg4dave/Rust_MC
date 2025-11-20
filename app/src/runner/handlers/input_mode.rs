@@ -1,6 +1,7 @@
 use crate::app::{App, InputKind, Mode};
 use crate::errors;
 use crate::input::KeyCode;
+use crate::app::settings::keybinds;
 use std::path::PathBuf;
 
 pub fn handle_input(app: &mut App, code: KeyCode) -> anyhow::Result<bool> {
@@ -10,12 +11,12 @@ pub fn handle_input(app: &mut App, code: KeyCode) -> anyhow::Result<bool> {
         kind,
     } = &mut app.mode
     {
-        match code {
-            KeyCode::Enter => {
-                let input = buffer.clone();
-                let kind_snapshot = *kind;
-                app.mode = Mode::Normal;
-                match kind_snapshot {
+        if keybinds::is_enter(&code) {
+            // enter/submit
+            let input = buffer.clone();
+            let kind_snapshot = *kind;
+            app.mode = Mode::Normal;
+            match kind_snapshot {
                     InputKind::Copy => {
                         let dst = PathBuf::from(input);
                         if let Err(err) = app.copy_selected_to(dst) {
@@ -94,17 +95,12 @@ pub fn handle_input(app: &mut App, code: KeyCode) -> anyhow::Result<bool> {
                         }
                     }
                 }
-            }
-            KeyCode::Backspace => {
-                buffer.pop();
-            }
-            KeyCode::Esc => {
-                app.mode = Mode::Normal;
-            }
-            KeyCode::Char(c) => {
-                buffer.push(c);
-            }
-            _ => {}
+        } else if keybinds::is_backspace(&code) {
+            buffer.pop();
+        } else if keybinds::is_esc(&code) {
+            app.mode = Mode::Normal;
+        } else if let KeyCode::Char(c) = code {
+            buffer.push(c);
         }
     }
     Ok(false)

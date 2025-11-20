@@ -1,5 +1,6 @@
 use crate::app::types::Mode;
 use crate::input::KeyCode;
+use crate::app::settings::keybinds;
 use crate::runner::commands;
 use ratatui::layout::Rect;
 use ratatui::widgets::{Block, Borders, Paragraph};
@@ -48,46 +49,47 @@ pub fn handle_input(app: &mut crate::app::core::App, key: KeyCode) -> anyhow::Re
                 app.command_line = Some(cl);
                 return Ok(true);
             }
-            KeyCode::Backspace => {
-                if cl.cursor > 0 {
-                    cl.buffer.pop();
-                    cl.cursor = cl.buffer.len();
-                }
-                app.command_line = Some(cl);
-                return Ok(true);
-            }
-            KeyCode::Enter => {
-                // Execute commands using the runner registry
-                let cmd = cl.buffer.trim();
-                // consume command-line (do not put back)
-                match commands::execute_command(app, cmd) {
-                    Ok(true) => { /* executed */ }
-                    Ok(false) => {
-                        app.mode = Mode::Message {
-                            title: "Command".to_string(),
-                            content: format!("Unknown command: {}", cmd),
-                            buttons: vec!["OK".to_string()],
-                            selected: 0,
-                            actions: None,
-                        };
-                    }
-                    Err(e) => {
-                        app.mode = Mode::Message {
-                            title: "Error".to_string(),
-                            content: format!("Command error: {}", e),
-                            buttons: vec!["OK".to_string()],
-                            selected: 0,
-                            actions: None,
-                        };
-                    }
-                }
-                return Ok(true);
-            }
-            KeyCode::Esc => {
-                // dismiss without executing
-                return Ok(true);
-            }
             _ => {
+                if keybinds::is_backspace(&key) {
+                    if cl.cursor > 0 {
+                        cl.buffer.pop();
+                        cl.cursor = cl.buffer.len();
+                    }
+                    app.command_line = Some(cl);
+                    return Ok(true);
+                }
+                if keybinds::is_enter(&key) {
+                    // Execute commands using the runner registry
+                    let cmd = cl.buffer.trim();
+                    // consume command-line (do not put back)
+                    match commands::execute_command(app, cmd) {
+                        Ok(true) => { /* executed */ }
+                        Ok(false) => {
+                            app.mode = Mode::Message {
+                                title: "Command".to_string(),
+                                content: format!("Unknown command: {}", cmd),
+                                buttons: vec!["OK".to_string()],
+                                selected: 0,
+                                actions: None,
+                            };
+                        }
+                        Err(e) => {
+                            app.mode = Mode::Message {
+                                title: "Error".to_string(),
+                                content: format!("Command error: {}", e),
+                                buttons: vec!["OK".to_string()],
+                                selected: 0,
+                                actions: None,
+                            };
+                        }
+                    }
+                    return Ok(true);
+                }
+                if keybinds::is_esc(&key) {
+                    // dismiss without executing
+                    return Ok(true);
+                }
+
                 // unhandled; put back and return consumed
                 app.command_line = Some(cl);
                 return Ok(true);

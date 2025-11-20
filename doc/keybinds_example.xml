@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+Example keybinds for fileZoom.
+Place this file at:
+  - $XDG_CONFIG_HOME/fileZoom/keybinds.xml
+  - or ./keybinds.xml in the current working directory
+
+Format:
+  <keybinds>
+    <bind action="ACTION_NAME">KEY</bind>
+  </keybinds>
+
+KEY examples:
+  - single characters: "q", "a", "."
+  - named keys: "Enter", "Esc", "Up", "Down", "Left", "Right", "Tab", "Space", "Backspace"
+  - control modifiers: "Ctrl+q", "Ctrl+S"
+
+This is a small starter file showing common remappings.
+-->
+<keybinds>
+  <!-- Quit the program (press "q" or Ctrl+q) -->
+  <bind action="quit">q</bind>
+  <bind action="quit">Ctrl+q</bind>
+
+  <!-- Open / confirm -->
+  <bind action="enter">Enter</bind>
+  <bind action="open">o</bind>
+
+  <!-- Navigation -->
+  <bind action="down">Down</bind>
+  <bind action="up">Up</bind>
+
+  <!-- Toggle hidden files -->
+  <bind action="toggle_hidden">.</bind>
+</keybinds><!--
+  Example keybinds.xml for fileZoom.
+
+  Place a copy of this file at `$XDG_CONFIG_HOME/fileZoom/keybinds.xml`
+  or in the working directory as `keybinds.xml` to override the defaults.
+
+  Format: one or more <bind action="action_name">KEY</bind>
+  KEY accepts simple names like: Enter, Backspace, Esc, Tab, Left, Right,
+  Up, Down, PageUp, PageDown, F<number> (e.g. F5), or a single character
+  (e.g. q). If you need to bind the space key explicitly, leave it out and
+  rely on the built-in default (space is already the default for
+  toggle_selection) or use an external tool to create an untrimmed value.
+-->
+
+<keybinds>
+  <!-- navigation -->
+  <bind action="down">Down</bind>
+  <bind action="up">Up</bind>
+  <bind action="page_down">PageDown</bind>
+  <bind action="page_up">PageUp</bind>
+
+  <!-- common actions -->
+  <bind action="enter">Enter</bind>
+  <bind action="quit">q</bind>
+  <bind action="refresh">r</bind>
+  <bind action="f5">F5</bind>
+
+  <!-- file operations -->
+  <bind action="copy">c</bind>
+  <bind action="mv">m</bind>
+  <bind action="delete">d</bind>
+  <bind action="rename">R</bind>
+
+  <!-- panels & UI -->
+  <bind action="tab">Tab</bind>
+  <bind action="left">Left</bind>
+  <bind action="right">Right</bind>
+
+  <!-- editing: backspace/enter are common defaults already -->
+  <bind action="backspace">Backspace</bind>
+</keybinds>

@@ -18,6 +18,7 @@ fn save_and_load_settings_roundtrip() {
         context_actions: Settings::default().context_actions.clone(),
         mouse_enabled: true,
         mouse_double_click_ms: 500,
+        prefer_integrated_vim: false,
     };
 
     save_settings(&s).expect("save should succeed");

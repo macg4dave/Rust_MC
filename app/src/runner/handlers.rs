@@ -20,6 +20,7 @@ pub use settings::handle_settings;
 
 use crate::app::{App, Mode};
 use crate::input::KeyCode;
+use crate::app::settings::keybinds;
 
 /// Top-level key handler that dispatches into smaller submodules.
 pub fn handle_key(app: &mut App, code: KeyCode, page_size: usize) -> anyhow::Result<bool> {
@@ -35,48 +36,39 @@ pub fn handle_key(app: &mut App, code: KeyCode, page_size: usize) -> anyhow::Res
             selected,
             actions,
         } => {
-            match code {
-                KeyCode::Left => {
-                    if *selected > 0 {
-                        *selected -= 1
-                    } else {
-                        *selected = buttons.len().saturating_sub(1)
-                    }
+            if keybinds::is_left(&code) {
+                if *selected > 0 {
+                    *selected -= 1
+                } else {
+                    *selected = buttons.len().saturating_sub(1)
                 }
-                KeyCode::Right => {
-                    *selected = (*selected + 1) % buttons.len();
-                }
-                KeyCode::Enter => {
-                    // If an action mapping exists, execute the mapped action for
-                    // the selected button. Otherwise simply dismiss the dialog.
-                    if let Some(act) =
-                        crate::ui::dialogs::selection_to_action(*selected, actions.as_deref())
-                    {
-                        match crate::runner::commands::perform_action(app, act) {
-                            Ok(_) => {
-                                app.mode = Mode::Normal;
-                            }
-                            Err(e) => {
-                                app.mode = Mode::Message {
-                                    title: "Error".to_string(),
-                                    content: format!("Action failed: {}", e),
-                                    buttons: vec!["OK".to_string()],
-                                    selected: 0,
-                                    actions: None,
-                                };
-                            }
+            } else if keybinds::is_right(&code) {
+                *selected = (*selected + 1) % buttons.len();
+            } else if keybinds::is_enter(&code) {
+                // If an action mapping exists, execute the mapped action for
+                // the selected button. Otherwise simply dismiss the dialog.
+                if let Some(act) =
+                    crate::ui::dialogs::selection_to_action(*selected, actions.as_deref())
+                {
+                    match crate::runner::commands::perform_action(app, act) {
+                        Ok(_) => {
+                            app.mode = Mode::Normal;
                         }
-                    } else {
-                        app.mode = Mode::Normal;
+                        Err(e) => {
+                            app.mode = Mode::Message {
+                                title: "Error".to_string(),
+                                content: format!("Action failed: {}", e),
+                                buttons: vec!["OK".to_string()],
+                                selected: 0,
+                                actions: None,
+                            };
+                        }
                     }
-                }
-                KeyCode::Esc => {
+                } else {
                     app.mode = Mode::Normal;
                 }
-                KeyCode::Char(_) => {
-                    app.mode = Mode::Normal;
-                }
-                _ => {}
+            } else if keybinds::is_esc(&code) || matches!(code, KeyCode::Char(_)) {
+                app.mode = Mode::Normal;
             }
             Ok(false)
         }

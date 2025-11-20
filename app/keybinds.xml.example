@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Minimal example keybinds for fileZoom (placed beside the app) -->
+<keybinds>
+  <!-- Quit with 'q' or Ctrl+q -->
+  <bind action="quit">q</bind>
+  <bind action="quit">Ctrl+q</bind>
+
+  <!-- Open / confirm -->
+  <bind action="enter">Enter</bind>
+  <bind action="open">o</bind>
+
+  <!-- Basic navigation -->
+  <bind action="down">Down</bind>
+  <bind action="up">Up</bind>
+</keybinds>
+<!-- Example keybinds (copy to XDG config dir or project root as keybinds.xml) -->
+<keybinds>
+  <bind action="quit">q</bind>
+  <bind action="enter">Enter</bind>
+  <bind action="down">Down</bind>
+  <bind action="up">Up</bind>
+  <bind action="f5">F5</bind>
+  <bind action="copy">c</bind>
+  <bind action="mv">m</bind>
+  <bind action="delete">d</bind>
+</keybinds>
