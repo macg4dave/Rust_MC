@@ -54,3 +54,13 @@ pub fn read_event() -> anyhow::Result<InputEvent> {
         _ => Ok(InputEvent::Other),
     }
 }
+
+// Notes for async vs sync usage and diagnostics:
+// - For synchronous applications we prefer `crossterm::event::poll(timeout)`
+//   (used throughout the runner) to avoid blocking indefinitely and to
+//   allow batching/aggregation of bursts of events.
+// - For async applications consider `crossterm`'s `EventStream` feature which
+//   integrates with `tokio`/`async-std` and provides a Stream of events.
+// - `read_event` will return an error if the underlying `crossterm::event::read`
+//   fails; callers may log and continue on transient IO errors to keep the
+//   application resilient (the runner already coalesces and logs input errors).

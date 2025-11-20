@@ -76,6 +76,20 @@ Cleanup
 docker volume rm filezoom_fixtures_<stamp>
 ```
 
+## Terminal safety during tests
+
+- Many tests and helper runs spawn the TUI `fileZoom` binary. When running
+  terminal-based UI code in tests, it's important to ensure the terminal is
+  always restored (leave alternate screen, disable raw mode, disable mouse
+  capture) even on panic or early exit. Tests that fail to restore the
+  terminal can leave the developer shell in an unusable state.
+- The codebase now provides a `TerminalGuard` RAII helper that ensures
+  terminal restoration on drop; tests or helpers that initialize the
+  terminal should prefer `init_terminal()` which returns this guard. Where
+  explicit restoration is desired, call `restore_terminal(guard)` to report
+  errors instead of relying solely on Drop.
+
+
 Adjusting generator behavior
 
 If you want to change fixture defaults (counts, multilingual variance, depth), I
