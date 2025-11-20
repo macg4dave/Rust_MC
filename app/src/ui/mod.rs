@@ -8,6 +8,7 @@ use crate::app::Mode;
 pub mod colors;
 pub mod dialogs;
 pub mod header;
+pub mod bar_ui;
 pub mod menu;
 pub mod command_line;
 pub mod modal;
@@ -19,6 +20,7 @@ pub use header::*;
 pub use menu::*;
 pub use modal::*;
 pub use panels::*;
+pub use bar_ui::*;
 
 pub fn ui(f: &mut Frame, app: &App) {
     // Top menu (1), status (1), main panes (min), bottom help (1)
@@ -134,9 +136,16 @@ pub fn ui(f: &mut Frame, app: &App) {
                 dialogs::draw_info(f, f.area(), title, content, &btn_refs, *selected);
             }
         }
-        Mode::Progress { title, processed, total, message, .. } => {
-            let content = format!("{}/{}\n{}\n\nPress Esc to cancel.", processed, total, message);
-            modal::draw_popup(f, f.area(), 40, 20, title, &content);
+        Mode::Progress { title, processed, total, message, cancelled } => {
+            crate::ui::bar_ui::draw_progress_modal(
+                f,
+                f.area(),
+                title,
+                *processed,
+                *total,
+                message,
+                *cancelled,
+            );
         }
         Mode::Conflict { path, selected, apply_all } => {
             // Render a compact conflict dialog with a checkbox for "Apply to all"
