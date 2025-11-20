@@ -6,10 +6,9 @@ use ratatui::layout::{Constraint, Direction, Layout, Rect};
 pub fn handle_mouse(app: &mut App, me: MouseEvent, term_rect: Rect) -> anyhow::Result<bool> {
     use crate::ui::menu;
     // Handle scroll and left-button down
-    match me.kind {
-        MouseEventKind::Down(crate::input::mouse::MouseButton::Left) |
-        MouseEventKind::Down(crate::input::mouse::MouseButton::Right) => {
-            // proceed to click handling below
+        match me.kind {
+            MouseEventKind::Down(_) | MouseEventKind::Up(_) | MouseEventKind::Drag(_) => {
+                // proceed to click/drag handling below
         }
         MouseEventKind::ScrollUp | MouseEventKind::ScrollDown => {
             let chunks = Layout::default()
@@ -102,12 +101,12 @@ pub fn handle_mouse(app: &mut App, me: MouseEvent, term_rect: Rect) -> anyhow::R
                 if matches!(me.kind, MouseEventKind::Down(crate::input::mouse::MouseButton::Left)) {
                     if me.column < mid {
                         // Save
-                        match crate::app::settings::save_settings(&app.settings) {
+                                match crate::app::settings::save_settings(&app.settings) {
                             Ok(_) => {
-                                app.mode = Mode::Message { title: "Settings Saved".to_string(), content: "Settings persisted".to_string(), buttons: vec!["OK".to_string()], selected: 0 };
+                                app.mode = Mode::Message { title: "Settings Saved".to_string(), content: "Settings persisted".to_string(), buttons: vec!["OK".to_string()], selected: 0, actions: None };
                             }
                             Err(e) => {
-                                app.mode = Mode::Message { title: "Error".to_string(), content: format!("Failed to save settings: {}", e), buttons: vec!["OK".to_string()], selected: 0 };
+                                app.mode = Mode::Message { title: "Error".to_string(), content: format!("Failed to save settings: {}", e), buttons: vec!["OK".to_string()], selected: 0, actions: None };
                             }
                         }
                     } else {
@@ -154,6 +153,16 @@ pub fn handle_mouse(app: &mut App, me: MouseEvent, term_rect: Rect) -> anyhow::R
                 panel_mut.selected = std::cmp::min(new_sel, max_rows.saturating_sub(1));
             }
             app.active = side;
+            // If left button down inside panel, start a drag selection
+            {
+                use crate::input::mouse::MouseButton as Btn;
+                if matches!(me.kind, MouseEventKind::Down(Btn::Left)) {
+                    app.drag_active = true;
+                    app.drag_start = Some((me.column, me.row));
+                    app.drag_current = Some((me.column, me.row));
+                    app.drag_button = Some(Btn::Left);
+                }
+            }
             // Double-click detection: if mouse support enabled and two left-clicks
             // happened at same position within the configured timeout, treat as
             // enter (open directory) action.
@@ -189,6 +198,12 @@ pub fn handle_mouse(app: &mut App, me: MouseEvent, term_rect: Rect) -> anyhow::R
                     app.mode = Mode::ContextMenu { title: format!("Actions: {}", e.name), options, selected: 0, path: e.path.clone() };
                 }
             }
+            // For drag/up events we want outer handler to continue to allow
+            // specialized drag handling. For other events (down/right) we
+            // consider the click consumed.
+            if matches!(me.kind, MouseEventKind::Drag(_) | MouseEventKind::Up(_)) {
+                return false;
+            }
             return true;
         }
         false
@@ -199,6 +214,88 @@ pub fn handle_mouse(app: &mut App, me: MouseEvent, term_rect: Rect) -> anyhow::R
     }
     if me.column >= main_chunks[1].x && me.column < main_chunks[1].x + main_chunks[1].width {
         if handle_panel_click(main_chunks[1], Side::Right, app, &me) { return Ok(false); }
+    }
+
+    // Update drag selection while dragging, and finish drag on button release.
+    use crate::input::mouse::MouseButton;
+    if matches!(me.kind, MouseEventKind::Drag(MouseButton::Left)) {
+        // determine which panel the cursor is over
+        if me.column >= main_chunks[0].x && me.column < main_chunks[0].x + main_chunks[0].width {
+            let area = main_chunks[0];
+            let side = Side::Left;
+            if app.drag_active && app.drag_button == Some(MouseButton::Left) {
+                app.drag_current = Some((me.column, me.row));
+                let drag_start_opt = app.drag_start;
+                let panel_mut = app.panel_mut(side);
+                panel_mut.clear_selections();
+                let header_count = 1usize;
+                let parent_count = if panel_mut.cwd.parent().is_some() { 1usize } else { 0usize };
+                if let Some((sc, sr)) = drag_start_opt {
+                    // ensure the drag started inside this panel area (both column and row)
+                    if sc >= area.x && sc < area.x + area.width && sr >= area.y + 1 && sr < area.y + area.height - 1 {
+                        let start_clicked = (sr as i32 - (area.y as i32 + 1)) as usize;
+                        let start_ui = panel_mut.offset.saturating_add(start_clicked);
+                        if start_ui >= header_count + parent_count {
+                            let start_domain = start_ui - header_count - parent_count;
+                            let cur_row = me.row;
+                            if cur_row >= area.y + 1 && cur_row < area.y + area.height - 1 {
+                                let cur_clicked = (cur_row as i32 - (area.y as i32 + 1)) as usize;
+                                let cur_ui = panel_mut.offset.saturating_add(cur_clicked);
+                                if cur_ui >= header_count + parent_count {
+                                    let cur_domain = cur_ui - header_count - parent_count;
+                                    let (lo, hi) = if start_domain <= cur_domain { (start_domain, cur_domain) } else { (cur_domain, start_domain) };
+                                    for i in lo..=hi { if i < panel_mut.entries.len() { panel_mut.selections.insert(i); } }
+                                }
+                            }
+                        }
+                    }
+                }
+                return Ok(false);
+            }
+        }
+        if me.column >= main_chunks[1].x && me.column < main_chunks[1].x + main_chunks[1].width {
+            let area = main_chunks[1];
+            let side = Side::Right;
+            if app.drag_active && app.drag_button == Some(MouseButton::Left) {
+                app.drag_current = Some((me.column, me.row));
+                let drag_start_opt = app.drag_start;
+                let panel_mut = app.panel_mut(side);
+                panel_mut.clear_selections();
+                let header_count = 1usize;
+                let parent_count = if panel_mut.cwd.parent().is_some() { 1usize } else { 0usize };
+                if let Some((sc, sr)) = drag_start_opt {
+                    // ensure the drag started inside this panel area (both column and row)
+                    if sc >= area.x && sc < area.x + area.width && sr >= area.y + 1 && sr < area.y + area.height - 1 {
+                        let start_clicked = (sr as i32 - (area.y as i32 + 1)) as usize;
+                        let start_ui = panel_mut.offset.saturating_add(start_clicked);
+                        if start_ui >= header_count + parent_count {
+                            let start_domain = start_ui - header_count - parent_count;
+                            let cur_row = me.row;
+                            if cur_row >= area.y + 1 && cur_row < area.y + area.height - 1 {
+                                let cur_clicked = (cur_row as i32 - (area.y as i32 + 1)) as usize;
+                                let cur_ui = panel_mut.offset.saturating_add(cur_clicked);
+                                if cur_ui >= header_count + parent_count {
+                                    let cur_domain = cur_ui - header_count - parent_count;
+                                    let (lo, hi) = if start_domain <= cur_domain { (start_domain, cur_domain) } else { (cur_domain, start_domain) };
+                                    for i in lo..=hi { if i < panel_mut.entries.len() { panel_mut.selections.insert(i); } }
+                                }
+                            }
+                        }
+                    }
+                }
+                return Ok(false);
+            }
+        }
+    }
+
+    if matches!(me.kind, MouseEventKind::Up(MouseButton::Left)) {
+        if app.drag_active && app.drag_button == Some(MouseButton::Left) {
+            app.drag_active = false;
+            app.drag_current = Some((me.column, me.row));
+            app.drag_start = None;
+            app.drag_button = None;
+            return Ok(false);
+        }
     }
 
     Ok(false)

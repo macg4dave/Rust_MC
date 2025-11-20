@@ -52,7 +52,7 @@ fn clicking_top_menu_activates_menu_item() {
     let res = handlers::handle_mouse(&mut app, me, term).unwrap();
     assert!(res);
     match &app.mode {
-        Mode::Message { title, content: _, buttons: _, selected: _ } => {
+        Mode::Message { title, .. } => {
             // menu_labels()[0] == "File"
             assert_eq!(title, "File");
         }

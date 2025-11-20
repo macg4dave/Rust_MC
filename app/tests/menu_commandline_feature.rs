@@ -65,6 +65,10 @@ fn context_menu_enter_opens_preview() {
         op_decision_tx: None,
         last_mouse_click_time: None,
         last_mouse_click_pos: None,
+        drag_active: false,
+        drag_start: None,
+        drag_current: None,
+        drag_button: None,
     };
     app.refresh().unwrap();
 

@@ -28,9 +28,28 @@ pub fn handle_key(app: &mut App, code: KeyCode, page_size: usize) -> anyhow::Res
         Mode::Progress { .. } => handle_progress(app, code),
         Mode::Conflict { .. } => handle_conflict(app, code),
         Mode::ContextMenu { .. } => handle_context_menu(app, code),
-        Mode::Message { .. } => {
+        Mode::Message { title: _, content: _, buttons, selected, actions } => {
             match code {
-                KeyCode::Enter | KeyCode::Esc | KeyCode::Char(_) => app.mode = Mode::Normal,
+                KeyCode::Left => {
+                    if *selected > 0 { *selected -= 1 } else { *selected = buttons.len().saturating_sub(1) }
+                }
+                KeyCode::Right => { *selected = (*selected + 1) % buttons.len(); }
+                KeyCode::Enter => {
+                    // If an action mapping exists, execute the mapped action for
+                    // the selected button. Otherwise simply dismiss the dialog.
+                    if let Some(act) = crate::ui::dialogs::selection_to_action(*selected, actions.as_deref()) {
+                        match crate::runner::commands::perform_action(app, act) {
+                            Ok(_) => { app.mode = Mode::Normal; }
+                            Err(e) => {
+                                app.mode = Mode::Message { title: "Error".to_string(), content: format!("Action failed: {}", e), buttons: vec!["OK".to_string()], selected: 0, actions: None };
+                            }
+                        }
+                    } else {
+                        app.mode = Mode::Normal;
+                    }
+                }
+                KeyCode::Esc => { app.mode = Mode::Normal; }
+                KeyCode::Char(_) => { app.mode = Mode::Normal; }
                 _ => {}
             }
             Ok(false)

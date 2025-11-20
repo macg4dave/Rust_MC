@@ -13,6 +13,8 @@ pub enum MouseButton {
 pub enum MouseEventKind {
     Down(MouseButton),
     Up(MouseButton),
+    /// Drag with a pressed mouse button (button-specific move).
+    Drag(MouseButton),
     ScrollUp,
     ScrollDown,
     Move,
@@ -42,7 +44,11 @@ impl From<crossterm::event::MouseEvent> for MouseEvent {
                 CtBtn::Right => MouseButton::Right,
                 CtBtn::Middle => MouseButton::Middle,
             }),
-            CtKind::Drag(_) => MouseEventKind::Move,
+            CtKind::Drag(bt) => MouseEventKind::Drag(match bt {
+                CtBtn::Left => MouseButton::Left,
+                CtBtn::Right => MouseButton::Right,
+                CtBtn::Middle => MouseButton::Middle,
+            }),
             CtKind::ScrollUp => MouseEventKind::ScrollUp,
             CtKind::ScrollDown => MouseEventKind::ScrollDown,
             CtKind::Moved => MouseEventKind::Move,

@@ -30,28 +30,31 @@ pub fn handle_context_menu(app: &mut App, code: KeyCode) -> anyhow::Result<bool>
                                     let cmd = format!("{} \"{}\"", editor, e.path.display());
                                     match std::process::Command::new("sh").arg("-c").arg(cmd).spawn() {
                                         Ok(_) => {
-                                            app.mode = Mode::Message {
-                                                title: "Edit".to_string(),
-                                                content: format!("Launched editor: {}", editor),
-                                                buttons: vec!["OK".to_string()],
-                                                selected: 0,
-                                            };
-                                        }
-                                        Err(_) => {
-                                            app.mode = Mode::Message {
-                                                title: "Edit".to_string(),
-                                                content: "Failed to launch editor".to_string(),
-                                                buttons: vec!["OK".to_string()],
-                                                selected: 0,
-                                            };
-                                        }
+                                                app.mode = Mode::Message {
+                                                    title: "Edit".to_string(),
+                                                    content: format!("Launched editor: {}", editor),
+                                                    buttons: vec!["OK".to_string()],
+                                                    selected: 0,
+                                                    actions: None,
+                                                };
+                                            }
+                                            Err(_) => {
+                                                app.mode = Mode::Message {
+                                                    title: "Edit".to_string(),
+                                                    content: "Failed to launch editor".to_string(),
+                                                    buttons: vec!["OK".to_string()],
+                                                    selected: 0,
+                                                    actions: None,
+                                                };
+                                            }
                                     }
-                                } else {
+                                    } else {
                                     app.mode = Mode::Message {
                                         title: "Edit".to_string(),
                                         content: "No entry selected".to_string(),
                                         buttons: vec!["OK".to_string()],
                                         selected: 0,
+                                        actions: None,
                                     };
                                 }
                             }
@@ -64,11 +67,12 @@ pub fn handle_context_menu(app: &mut App, code: KeyCode) -> anyhow::Result<bool>
                                                 use std::os::unix::fs::PermissionsExt;
                                                 let mode = md.permissions().mode();
                                                 app.mode = Mode::Message {
-                                                    title: "Permissions".to_string(),
-                                                    content: format!("{}: {:o}", e.name, mode),
-                                                    buttons: vec!["OK".to_string()],
-                                                    selected: 0,
-                                                };
+                                                        title: "Permissions".to_string(),
+                                                        content: format!("{}: {:o}", e.name, mode),
+                                                        buttons: vec!["OK".to_string()],
+                                                        selected: 0,
+                                                        actions: None,
+                                                    };
                                             }
                                             #[cfg(not(unix))]
                                             {
@@ -77,6 +81,7 @@ pub fn handle_context_menu(app: &mut App, code: KeyCode) -> anyhow::Result<bool>
                                                     content: format!("{}: (platform-specific metadata)", e.name),
                                                     buttons: vec!["OK".to_string()],
                                                     selected: 0,
+                                                    actions: None,
                                                 };
                                             }
                                         }
@@ -86,15 +91,17 @@ pub fn handle_context_menu(app: &mut App, code: KeyCode) -> anyhow::Result<bool>
                                                 content: "Cannot read metadata".to_string(),
                                                 buttons: vec!["OK".to_string()],
                                                 selected: 0,
+                                                actions: None,
                                             };
                                         }
                                     }
-                                } else {
+                                    } else {
                                     app.mode = Mode::Message {
                                         title: "Permissions".to_string(),
                                         content: "No entry selected".to_string(),
                                         buttons: vec!["OK".to_string()],
                                         selected: 0,
+                                        actions: None,
                                     };
                                 }
                             }
@@ -104,6 +111,7 @@ pub fn handle_context_menu(app: &mut App, code: KeyCode) -> anyhow::Result<bool>
                                     content: format!("Action '{}' not implemented", ch),
                                     buttons: vec!["OK".to_string()],
                                     selected: 0,
+                                    actions: None,
                                 };
                             }
                         }

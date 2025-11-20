@@ -23,6 +23,10 @@ fn app_navigation_next_prev_and_paging() {
         op_decision_tx: None,
         last_mouse_click_time: None,
         last_mouse_click_pos: None,
+        drag_active: false,
+        drag_start: None,
+        drag_current: None,
+        drag_button: None,
     };
     // populate left entries with mock (directory) entries so preview doesn't try to read
     app.left.entries = (0..10)
@@ -112,6 +116,10 @@ fn app_navigation_ensure_selection_visible() {
         op_decision_tx: None,
         last_mouse_click_time: None,
         last_mouse_click_pos: None,
+        drag_active: false,
+        drag_start: None,
+        drag_current: None,
+        drag_button: None,
     };
     app.left.entries = (0..10)
         .map(|i| Entry::directory(format!("f{}", i), PathBuf::from(format!("/f{}", i)), None))

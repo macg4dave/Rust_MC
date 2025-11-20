@@ -29,6 +29,10 @@ fn selected_index_reflects_active_panel_unit() {
         op_decision_tx: None,
         last_mouse_click_time: None,
         last_mouse_click_pos: None,
+        drag_active: false,
+        drag_start: None,
+        drag_current: None,
+        drag_button: None,
     };
     app.refresh().unwrap();
 
@@ -96,6 +100,10 @@ fn panel_mut_match() {
         op_decision_tx: None,
         last_mouse_click_time: None,
         last_mouse_click_pos: None,
+        drag_active: false,
+        drag_start: None,
+        drag_current: None,
+        drag_button: None,
     };
     app.refresh().unwrap();
     // modify left via panel_mut and check read through panel

@@ -28,7 +28,7 @@ pub fn handle_normal(app: &mut App, code: KeyCode, page_size: usize) -> anyhow::
                 };
             } else {
                 let parent_count = if panel.cwd.parent().is_some() { 1usize } else { 0usize };
-                if panel.selected == 1 && parent_count == 1 {
+                    if panel.selected == 1 && parent_count == 1 {
                     if let Err(err) = app.go_up() {
                         let msg = errors::render_io_error(&err, None, None, None);
                         app.mode = Mode::Message {
@@ -36,10 +36,11 @@ pub fn handle_normal(app: &mut App, code: KeyCode, page_size: usize) -> anyhow::
                             content: msg,
                             buttons: vec!["OK".to_string()],
                             selected: 0,
+                            actions: None,
                         };
                     }
                 } else if let Some(e) = panel.selected_entry().cloned() {
-                    if let Err(err) = app.enter() {
+                        if let Err(err) = app.enter() {
                         let path_s = e.path.display().to_string();
                         let msg = errors::render_io_error(&err, Some(&path_s), None, None);
                         app.mode = Mode::Message {
@@ -47,6 +48,7 @@ pub fn handle_normal(app: &mut App, code: KeyCode, page_size: usize) -> anyhow::
                             content: msg,
                             buttons: vec!["OK".to_string()],
                             selected: 0,
+                            actions: None,
                         };
                     }
                 }
@@ -60,17 +62,19 @@ pub fn handle_normal(app: &mut App, code: KeyCode, page_size: usize) -> anyhow::
                     content: msg,
                     buttons: vec!["OK".to_string()],
                     selected: 0,
+                    actions: None,
                 };
             }
         }
         KeyCode::Char('r') => {
-            if let Err(err) = app.refresh() {
+                if let Err(err) = app.refresh() {
                 let msg = errors::render_io_error(&err, None, None, None);
                 app.mode = Mode::Message {
                     title: "Error".to_string(),
                     content: msg,
                     buttons: vec!["OK".to_string()],
                     selected: 0,
+                    actions: None,
                 };
             }
         }
@@ -249,13 +253,13 @@ pub fn handle_normal(app: &mut App, code: KeyCode, page_size: usize) -> anyhow::
                 let options = if app.settings.context_actions.is_empty() { vec!["View".to_string(), "Edit".to_string(), "Permissions".to_string(), "Cancel".to_string()] } else { app.settings.context_actions.clone() };
                 app.mode = Mode::ContextMenu { title: format!("Actions: {}", e.name), options, selected: 0, path: e.path.clone() };
             } else {
-                app.mode = Mode::Message { title: "Actions".to_string(), content: "No entry selected".to_string(), buttons: vec!["OK".to_string()], selected: 0 };
+                app.mode = Mode::Message { title: "Actions".to_string(), content: "No entry selected".to_string(), buttons: vec!["OK".to_string()], selected: 0, actions: None };
             }
         }
         KeyCode::Char('t') => { crate::ui::colors::toggle(); }
         KeyCode::Char('?') => {
             let content = "Keys:\n\nq: quit\nF1: toggle menu focus\nLeft/Right: menu navigation when focused\nEnter: open/activate\nBackspace: up\nd: delete\nc: copy\nm: move\nn/N: new file/dir\nR: rename\ns/S: sort (toggle desc)\nTab: switch panels\n?: show this help\n".to_string();
-            app.mode = Mode::Message { title: "Help".to_string(), content, buttons: vec!["OK".to_string()], selected: 0 };
+            app.mode = Mode::Message { title: "Help".to_string(), content, buttons: vec!["OK".to_string()], selected: 0, actions: None };
         }
         KeyCode::Char('>') => { let panel = app.active_panel_mut(); panel.preview_offset = panel.preview_offset.saturating_add(5); }
         KeyCode::Char('<') => { let panel = app.active_panel_mut(); panel.preview_offset = panel.preview_offset.saturating_sub(5); }

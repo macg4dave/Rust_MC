@@ -31,6 +31,14 @@ pub struct App {
     pub last_mouse_click_time: Option<std::time::Instant>,
     /// Last mouse click position (column, row).
     pub last_mouse_click_pos: Option<(u16, u16)>,
+    /// Whether a drag operation is currently active.
+    pub drag_active: bool,
+    /// Drag start position (column, row).
+    pub drag_start: Option<(u16, u16)>,
+    /// Current drag position (column, row).
+    pub drag_current: Option<(u16, u16)>,
+    /// Which mouse button started the drag.
+    pub drag_button: Option<crate::input::mouse::MouseButton>,
 }
 
 // submodules live in `app/src/app/core/`

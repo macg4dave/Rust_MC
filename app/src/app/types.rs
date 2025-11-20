@@ -106,6 +106,10 @@ pub enum Mode {
         content: String,
         buttons: Vec<String>,
         selected: usize,
+        /// Optional mapping from button index to an application `Action`.
+        /// When present, accepting the dialog (Enter) will attempt to
+        /// execute the mapped action via `runner::commands::perform_action`.
+        actions: Option<Vec<Action>>,
     },
     /// Settings dialog allowing toggling mouse and editing numeric timeout.
     Settings {

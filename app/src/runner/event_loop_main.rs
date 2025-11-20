@@ -16,6 +16,14 @@ pub fn run_app() -> anyhow::Result<()> {
         app.settings = s;
     }
 
+    // Track current mouse capture state so we can toggle it at runtime when
+    // user changes the `mouse_enabled` setting in the UI.
+    let mut mouse_capture_enabled = app.settings.mouse_enabled;
+    // If settings requested mouse disabled, turn off capture now (init enabled it).
+    if !mouse_capture_enabled {
+        let _ = crate::runner::terminal::disable_mouse_capture_on_terminal(&mut terminal);
+    }
+
     // Main event loop
     loop {
         terminal.draw(|f| ui::ui(f, &app))?;
@@ -42,6 +50,16 @@ pub fn run_app() -> anyhow::Result<()> {
                 }
                 InputEvent::Resize(_, _) => { /* redraw on next loop */ }
                 InputEvent::Other => {}
+            }
+            // If the user toggled the mouse setting in handlers, reflect this
+            // by enabling/disabling mouse capture on the terminal instance.
+            if app.settings.mouse_enabled != mouse_capture_enabled {
+                mouse_capture_enabled = app.settings.mouse_enabled;
+                if mouse_capture_enabled {
+                    let _ = crate::runner::terminal::enable_mouse_capture_on_terminal(&mut terminal);
+                } else {
+                    let _ = crate::runner::terminal::disable_mouse_capture_on_terminal(&mut terminal);
+                }
             }
         }
     }

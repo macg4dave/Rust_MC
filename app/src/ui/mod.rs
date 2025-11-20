@@ -102,6 +102,7 @@ pub fn ui(f: &mut Frame, app: &App) {
             content,
             buttons,
             selected,
+            ..
         } => {
             // Render as error if title contains "Error", otherwise info
             let btn_refs: Vec<&str> = buttons.iter().map(|s| s.as_str()).collect();

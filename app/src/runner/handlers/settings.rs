@@ -43,10 +43,10 @@ pub fn handle_settings(app: &mut App, code: KeyCode) -> anyhow::Result<bool> {
                         // Save settings
                         match crate::app::settings::save_settings(&app.settings) {
                             Ok(_) => {
-                                app.mode = Mode::Message { title: "Settings Saved".to_string(), content: "Settings persisted".to_string(), buttons: vec!["OK".to_string()], selected: 0 };
+                                app.mode = Mode::Message { title: "Settings Saved".to_string(), content: "Settings persisted".to_string(), buttons: vec!["OK".to_string()], selected: 0, actions: None };
                             }
                             Err(e) => {
-                                app.mode = Mode::Message { title: "Error".to_string(), content: format!("Failed to save settings: {}", e), buttons: vec!["OK".to_string()], selected: 0 };
+                                app.mode = Mode::Message { title: "Error".to_string(), content: format!("Failed to save settings: {}", e), buttons: vec!["OK".to_string()], selected: 0, actions: None };
                             }
                         }
                     }

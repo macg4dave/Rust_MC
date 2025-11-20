@@ -27,6 +27,10 @@ impl App {
             op_decision_tx: None,
             last_mouse_click_time: None,
             last_mouse_click_pos: None,
+            drag_active: false,
+            drag_start: None,
+            drag_current: None,
+            drag_button: None,
         };
         app.refresh()?;
         Ok(app)
@@ -75,6 +79,7 @@ impl App {
                             content: err,
                             buttons: vec!["OK".to_string()],
                             selected: 0,
+                            actions: None,
                         };
                     } else {
                         let content = format!("{} items processed", upd.processed);
@@ -83,6 +88,7 @@ impl App {
                             content,
                             buttons: vec!["OK".to_string()],
                             selected: 0,
+                            actions: None,
                         };
                     }
                     // Clear any multi-selections after successful/failed operation
@@ -137,6 +143,7 @@ impl App {
                     content,
                     buttons: vec!["OK".to_string()],
                     selected: 0,
+                    actions: None,
                 };
             }
         }

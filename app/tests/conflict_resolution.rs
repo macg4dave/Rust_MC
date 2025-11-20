@@ -35,6 +35,10 @@ fn conflict_overwrite() {
         op_decision_tx: None,
         last_mouse_click_time: None,
         last_mouse_click_pos: None,
+        drag_active: false,
+        drag_start: None,
+        drag_current: None,
+        drag_button: None,
     };
     app.refresh().unwrap();
 
@@ -100,6 +104,10 @@ fn conflict_skip() {
         op_decision_tx: None,
         last_mouse_click_time: None,
         last_mouse_click_pos: None,
+        drag_active: false,
+        drag_start: None,
+        drag_current: None,
+        drag_button: None,
     };
     app.refresh().unwrap();
 

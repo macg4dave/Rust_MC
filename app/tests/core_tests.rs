@@ -44,6 +44,10 @@ fn sort_name_puts_dirs_first() {
         op_decision_tx: None,
         last_mouse_click_time: None,
         last_mouse_click_pos: None,
+        drag_active: false,
+        drag_start: None,
+        drag_current: None,
+        drag_button: None,
     };
     app.refresh().unwrap();
 
@@ -81,6 +85,10 @@ fn preview_truncates_large_file() {
         op_decision_tx: None,
         last_mouse_click_time: None,
         last_mouse_click_pos: None,
+        drag_active: false,
+        drag_start: None,
+        drag_current: None,
+        drag_button: None,
     };
     app.refresh().unwrap();
 
@@ -136,6 +144,10 @@ fn preview_shows_directory_entries_limited() {
         op_decision_tx: None,
         last_mouse_click_time: None,
         last_mouse_click_pos: None,
+        drag_active: false,
+        drag_start: None,
+        drag_current: None,
+        drag_button: None,
     };
     app.refresh().unwrap();
 
@@ -194,6 +206,10 @@ fn preview_resets_preview_offset() {
         op_decision_tx: None,
         last_mouse_click_time: None,
         last_mouse_click_pos: None,
+        drag_active: false,
+        drag_start: None,
+        drag_current: None,
+        drag_button: None,
     };
     app.refresh().unwrap();
 
@@ -250,6 +266,10 @@ fn preview_handles_very_long_filename() {
         op_decision_tx: None,
         last_mouse_click_time: None,
         last_mouse_click_pos: None,
+        drag_active: false,
+        drag_start: None,
+        drag_current: None,
+        drag_button: None,
     };
     app.refresh().unwrap();
 
@@ -310,6 +330,10 @@ fn preview_unreadable_file_shows_message() {
         op_decision_tx: None,
         last_mouse_click_time: None,
         last_mouse_click_pos: None,
+        drag_active: false,
+        drag_start: None,
+        drag_current: None,
+        drag_button: None,
     };
     app.refresh().unwrap();
 
