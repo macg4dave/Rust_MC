@@ -7,4 +7,7 @@ pub mod types;
 pub mod settings;
 
 pub use core::panel::Panel;
+pub use core::App;
 pub use types::{Action, Entry, InputKind, Mode, Side, SortKey};
+// Deprecated compatibility shim: keep `crate::app::path` working for older code/tests.
+pub use crate::fs_op::path;
