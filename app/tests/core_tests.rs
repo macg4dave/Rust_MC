@@ -34,6 +34,8 @@ fn sort_name_puts_dirs_first() {
         mode: Mode::Normal,
         sort: SortKey::Name,
         sort_desc: false,
+        menu_index: 0,
+        menu_focused: false,
     };
     app.refresh().unwrap();
 
@@ -61,6 +63,8 @@ fn preview_truncates_large_file() {
         mode: Mode::Normal,
         sort: SortKey::Name,
         sort_desc: false,
+        menu_index: 0,
+        menu_focused: false,
     };
     app.refresh().unwrap();
 
@@ -106,6 +110,8 @@ fn preview_shows_directory_entries_limited() {
         mode: Mode::Normal,
         sort: SortKey::Name,
         sort_desc: false,
+        menu_index: 0,
+        menu_focused: false,
     };
     app.refresh().unwrap();
 
@@ -153,6 +159,8 @@ fn preview_resets_preview_offset() {
         mode: Mode::Normal,
         sort: SortKey::Name,
         sort_desc: false,
+        menu_index: 0,
+        menu_focused: false,
     };
     app.refresh().unwrap();
 
@@ -199,6 +207,8 @@ fn preview_handles_very_long_filename() {
         mode: Mode::Normal,
         sort: SortKey::Name,
         sort_desc: false,
+        menu_index: 0,
+        menu_focused: false,
     };
     app.refresh().unwrap();
 
@@ -249,6 +259,8 @@ fn preview_unreadable_file_shows_message() {
         mode: Mode::Normal,
         sort: SortKey::Name,
         sort_desc: false,
+        menu_index: 0,
+        menu_focused: false,
     };
     app.refresh().unwrap();
 

@@ -13,6 +13,8 @@ pub struct App {
     pub mode: Mode,
     pub sort: SortKey,
     pub sort_desc: bool,
+    pub menu_index: usize,
+    pub menu_focused: bool,
 }
 
 // submodules live in `app/src/app/core/`
@@ -94,6 +96,8 @@ impl App {
             mode: Mode::Normal,
             sort: SortKey::Name,
             sort_desc: false,
+            menu_index: 0,
+            menu_focused: false,
         };
         app.refresh()?;
         Ok(app)
@@ -103,6 +107,34 @@ impl App {
         self.refresh_panel(Side::Left)?;
         self.refresh_panel(Side::Right)?;
         Ok(())
+    }
+
+    /// Switches the menu selection to the next tab (wraps around).
+    pub fn menu_next(&mut self) {
+        let n = crate::ui::menu::menu_labels().len();
+        if n == 0 { return; }
+        self.menu_index = (self.menu_index + 1) % n;
+    }
+
+    /// Switches the menu selection to the previous tab (wraps around).
+    pub fn menu_prev(&mut self) {
+        let n = crate::ui::menu::menu_labels().len();
+        if n == 0 { return; }
+        self.menu_index = (self.menu_index + n - 1) % n;
+    }
+
+    /// Activate currently selected menu item (for now show a message).
+    pub fn menu_activate(&mut self) {
+        let labels = crate::ui::menu::menu_labels();
+        if let Some(lbl) = labels.get(self.menu_index) {
+            let content = format!("Menu '{}' selected", lbl);
+            self.mode = Mode::Message {
+                title: lbl.to_string(),
+                content,
+                buttons: vec!["OK".to_string()],
+                selected: 0,
+            };
+        }
     }
 
     /// Return the currently selected index for the active panel.
@@ -196,6 +228,8 @@ mod tests {
             mode: Mode::Normal,
             sort: SortKey::Name,
             sort_desc: false,
+            menu_index: 0,
+            menu_focused: false,
         };
         app.refresh().unwrap();
 
@@ -253,6 +287,8 @@ mod tests {
             mode: Mode::Normal,
             sort: SortKey::Name,
             sort_desc: false,
+            menu_index: 0,
+            menu_focused: false,
         };
         app.refresh().unwrap();
         // modify left via panel_mut and check read through panel

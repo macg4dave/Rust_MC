@@ -29,7 +29,13 @@ pub fn run_app() -> anyhow::Result<()> {
                         break;
                     }
                 }
-                InputEvent::Mouse(_) => { /* Mouse events ignored at runtime */ }
+                InputEvent::Mouse(me) => {
+                    // dispatch mouse events to the handlers module which will
+                    // map coordinates to UI areas using the terminal size
+                    let ts = terminal.size()?;
+                    let term_rect = ratatui::layout::Rect::new(0, 0, ts.width, ts.height);
+                    handlers::handle_mouse(&mut app, me, term_rect)?;
+                }
                 InputEvent::Resize(_, _) => { /* redraw on next loop */ }
                 InputEvent::Other => {}
             }

@@ -2,6 +2,8 @@ use crate::app::{Action, App, InputKind, Mode, Side};
 use crate::errors;
 use crate::input::KeyCode;
 use std::path::PathBuf;
+use crate::input::MouseEvent;
+use ratatui::layout::{Constraint, Direction, Layout, Rect};
 
 pub fn handle_key(app: &mut App, code: KeyCode, page_size: usize) -> anyhow::Result<bool> {
     match &mut app.mode {
@@ -19,6 +21,72 @@ pub fn handle_key(app: &mut App, code: KeyCode, page_size: usize) -> anyhow::Res
     }
 }
 
+/// Handle mouse events given the terminal drawable area `term_rect`.
+/// Currently supports left-button clicks to focus panels and select rows,
+/// and clicks on the top menu to focus/activate menu tabs.
+pub fn handle_mouse(app: &mut App, me: MouseEvent, term_rect: Rect) -> anyhow::Result<bool> {
+    use crate::ui::menu;
+    // Only handle left-button down for now
+    if !matches!(me.kind, crate::input::mouse::MouseEventKind::Down(crate::input::mouse::MouseButton::Left)) {
+        return Ok(false);
+    }
+
+    // Recompute the same layout used by `ui::ui` so clicks map to areas.
+    // Top menu (1), status (1), main panes (min), bottom help (1)
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Min(0),
+            Constraint::Length(1),
+        ].as_ref())
+        .split(term_rect);
+
+    // If click in the menu row
+    if me.row >= chunks[0].y && me.row < chunks[0].y + chunks[0].height {
+        let width = term_rect.width as usize;
+        let labels = menu::menu_labels();
+        if !labels.is_empty() {
+            let idx = (me.column as usize * labels.len()) / width;
+            app.menu_index = std::cmp::min(idx, labels.len().saturating_sub(1));
+            app.menu_focused = true;
+        }
+        return Ok(false);
+    }
+
+    // If click in main pane area, determine which side and set active/selection
+    let main_chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+        .split(chunks[2]);
+
+    // Helper to handle click inside a given panel rect
+    let handle_panel_click = |area: Rect, side: Side, app: &mut App, me: &MouseEvent| {
+        if me.row >= area.y + 1 && me.row < area.y + area.height - 1 {
+            // compute clicked ui row (0-based relative to panel.offset)
+            let clicked = (me.row as i32 - (area.y as i32 + 1)) as usize;
+            let panel = app.panel_mut(side);
+            let new_sel = panel.offset.saturating_add(clicked);
+            // clamp selection against maximum rows (header + parent + entries - 1)
+            let max_rows = 1 + if panel.cwd.parent().is_some() { 1 } else { 0 } + panel.entries.len();
+            panel.selected = std::cmp::min(new_sel, max_rows.saturating_sub(1));
+            app.active = side;
+            return true;
+        }
+        false
+    };
+
+    if me.column >= main_chunks[0].x && me.column < main_chunks[0].x + main_chunks[0].width {
+        if handle_panel_click(main_chunks[0], Side::Left, app, &me) { return Ok(false); }
+    }
+    if me.column >= main_chunks[1].x && me.column < main_chunks[1].x + main_chunks[1].width {
+        if handle_panel_click(main_chunks[1], Side::Right, app, &me) { return Ok(false); }
+    }
+
+    Ok(false)
+}
+
 fn handle_normal(app: &mut App, code: KeyCode, page_size: usize) -> anyhow::Result<bool> {
     match code {
         KeyCode::Char('q') => return Ok(true),
@@ -26,7 +94,7 @@ fn handle_normal(app: &mut App, code: KeyCode, page_size: usize) -> anyhow::Resu
         KeyCode::Up => app.previous(page_size),
         KeyCode::PageDown => app.page_down(page_size),
         KeyCode::PageUp => app.page_up(page_size),
-        KeyCode::Enter => {
+        KeyCode::Enter if !app.menu_focused => {
             let panel = app.active_panel_mut();
             // Header row
             if panel.selected == 0 {
@@ -166,6 +234,23 @@ fn handle_normal(app: &mut App, code: KeyCode, page_size: usize) -> anyhow::Resu
                 Side::Right => Side::Left,
             };
         }
+        KeyCode::F(1) => {
+            // Toggle menu focus
+            app.menu_focused = !app.menu_focused;
+        }
+        KeyCode::Left if app.menu_focused => {
+            app.menu_prev();
+        }
+        KeyCode::Right if app.menu_focused => {
+            app.menu_next();
+        }
+        KeyCode::Enter if app.menu_focused => {
+            app.menu_activate();
+            app.menu_focused = false;
+        }
+        KeyCode::Esc if app.menu_focused => {
+            app.menu_focused = false;
+        }
         KeyCode::Home => {
             app.active_panel_mut().selected = 0;
         }
@@ -185,6 +270,16 @@ fn handle_normal(app: &mut App, code: KeyCode, page_size: usize) -> anyhow::Resu
         KeyCode::Char('p') => { /* toggle preview behavior */ }
         KeyCode::Char('t') => {
             crate::ui::colors::toggle();
+        }
+        KeyCode::Char('?') => {
+            // Show interactive help overlay
+            let content = "Keys:\n\nq: quit\nF1: toggle menu focus\nLeft/Right: menu navigation when focused\nEnter: open/activate\nBackspace: up\nd: delete\nc: copy\nm: move\nn/N: new file/dir\nR: rename\ns/S: sort (toggle desc)\nTab: switch panels\n?: show this help\n".to_string();
+            app.mode = Mode::Message {
+                title: "Help".to_string(),
+                content,
+                buttons: vec!["OK".to_string()],
+                selected: 0,
+            };
         }
         KeyCode::Char('>') => {
             let panel = app.active_panel_mut();

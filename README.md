@@ -81,3 +81,10 @@ cargo run --release
 
 Use the arrow keys or page keys to scroll and confirm the vertical scrollbars
 appear at the right hand side of panels and in the preview.
+
+Top menu usage
+--------------
+
+The top menu (`File`, `Copy`, `Move`, `New`, `Sort`, `Help`) is interactive. Press
+`F1` to focus the menu, then use Left/Right arrow keys to select a menu item and
+`Enter` to activate it (currently the activation opens a simple `Message` box).

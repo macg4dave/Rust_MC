@@ -58,6 +58,7 @@ impl UiEntry {
     }
 }
 use crate::ui::colors::current as theme_current;
+use crate::ui::util::columns_for_file_list;
 // PathBuf is intentionally not used here — keep imports minimal
 
 pub fn draw_list(f: &mut Frame, area: Rect, panel: &Panel, active: bool) {
@@ -79,30 +80,31 @@ pub fn draw_list(f: &mut Frame, area: Rect, panel: &Panel, active: bool) {
         &[]
     };
 
-    // Split area into the list and a 1-cell vertical scrollbar area; we need
-    // the panel width to compute column sizes for the list rows.
+    // Split area into the list and a 1-cell vertical scrollbar area; we need the
+    // panel width to compute column sizes for the list rows. We delegate
+    // column rect generation to our helper which uses Ratatui Layout constraints.
     let cols = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Min(0), Constraint::Length(1)].as_ref())
         .split(area);
 
-    let panel_width = cols[0].width as usize;
-    let size_col = 10usize;
-    let modified_col = 16usize;
-    let perms_col = 4usize;
-    let separators_width = 3usize * 3; // ' | ' between columns
-    let name_col = panel_width.saturating_sub(size_col + modified_col + perms_col + separators_width + 2);
+    let size_col = 10u16;
+    let modified_col = 16u16;
+    let perms_col = 4u16;
+    // Compute Rects for the columns using flexible ratio for the name column.
+    let inner_cols = columns_for_file_list(cols[0], (1, 1), size_col, modified_col, perms_col);
+    let name_col = inner_cols[0].width as usize;
 
     let mut items: Vec<ListItem> = Vec::new();
     // Build a column header item
     let mut header_spans: Vec<Span> = Vec::new();
     header_spans.push(Span::styled(format!("{:<width$}", "Name", width = name_col), theme.header_style));
-    header_spans.push(Span::raw(" | "));
-    header_spans.push(Span::styled(format!("{:<width$}", "Size", width = size_col), theme.header_style));
-    header_spans.push(Span::raw(" | "));
-    header_spans.push(Span::styled(format!("{:<width$}", "Modified", width = modified_col), theme.header_style));
-    header_spans.push(Span::raw(" | "));
-    header_spans.push(Span::styled(format!("{:<width$}", "rwx", width = perms_col), theme.header_style));
+    header_spans.push(Span::raw(" │ "));
+    header_spans.push(Span::styled(format!("{:<width$}", "Size", width = size_col as usize), theme.header_style));
+    header_spans.push(Span::raw(" │ "));
+    header_spans.push(Span::styled(format!("{:<width$}", "Modified", width = modified_col as usize), theme.header_style));
+    header_spans.push(Span::raw(" │ "));
+    header_spans.push(Span::styled(format!("{:<width$}", "rwx", width = perms_col as usize), theme.header_style));
     // We'll construct the columns header from `header_spans` when needed.
 
     for e in visible.iter() {
@@ -119,7 +121,7 @@ pub fn draw_list(f: &mut Frame, area: Rect, panel: &Panel, active: bool) {
             Style::default()
         };
         // Build spans for columns: name | size | modified | perms
-        let icon = if e.entry.is_dir { "📁 " } else { "   " };
+        let icon = if e.entry.is_dir { "📁 " } else { "📄 " };
         let name_text = format!("{}{}", icon, e.display);
         let name_field = if name_text.len() > name_col {
             name_text[..name_col].to_string()
@@ -127,25 +129,25 @@ pub fn draw_list(f: &mut Frame, area: Rect, panel: &Panel, active: bool) {
             format!("{:<width$}", name_text, width = name_col)
         };
         let size_field = if e.entry.is_dir {
-            format!("{:<width$}", "<DIR>", width = size_col)
+            format!("{:<width$}", "<DIR>", width = size_col as usize)
         } else {
-            format!("{:>width$}", e.entry.size, width = size_col)
+            format!("{:>width$}", e.entry.size, width = size_col as usize)
         };
         let mtime = e.entry.modified.map(|d| d.format("%Y-%m-%d %H:%M").to_string()).unwrap_or_else(|| "-".to_string());
-        let mtime_field = if mtime.len() > modified_col {
-            mtime[..modified_col].to_string()
+            let mtime_field = if mtime.len() > modified_col as usize {
+            mtime[..modified_col as usize].to_string()
         } else {
-            format!("{:>width$}", mtime, width = modified_col)
+            format!("{:>width$}", mtime, width = modified_col as usize)
         };
         let perms_field = "rwx".to_string();
 
         let mut spans: Vec<Span> = Vec::new();
         spans.push(Span::styled(name_field, style));
-        spans.push(Span::raw(" | "));
+            spans.push(Span::raw(" │ "));
         spans.push(Span::styled(size_field, theme.help_block_style));
-        spans.push(Span::raw(" | "));
+            spans.push(Span::raw(" │ "));
         spans.push(Span::styled(mtime_field, theme.help_block_style));
-        spans.push(Span::raw(" | "));
+            spans.push(Span::raw(" │ "));
         spans.push(Span::styled(perms_field, theme.help_block_style));
         items.push(ListItem::new(Text::from(Line::from(spans))));
     }
@@ -185,6 +187,21 @@ pub fn draw_list(f: &mut Frame, area: Rect, panel: &Panel, active: bool) {
 pub fn draw_preview(f: &mut Frame, area: Rect, panel: &Panel) {
     let max_lines = (area.height as usize).saturating_sub(2);
     let lines: Vec<&str> = panel.preview.lines().collect();
+    // Resort to rendering the full preview into a temporary buffer and splicing a viewport
+    // out of it as a convenience — this mirrors the pattern used in Ratatui examples.
+    let _text = lines.iter().fold(String::new(), |mut acc, l| {
+        acc.push_str(l);
+        acc.push('\n');
+        acc
+    });
+    let theme = theme_current();
+    
+    // split area into main preview and a vertical scrollbar
+    let cols = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Min(0), Constraint::Length(1)].as_ref())
+        .split(area);
+    // Render preview into a buffer and splice the visible region based on preview_offset
     let visible = if panel.preview_offset < lines.len() {
         &lines[panel.preview_offset..std::cmp::min(panel.preview_offset + max_lines, lines.len())]
     } else {
@@ -195,18 +212,12 @@ pub fn draw_preview(f: &mut Frame, area: Rect, panel: &Panel) {
         acc.push('\n');
         acc
     });
-    let theme = theme_current();
     let preview = Paragraph::new(text).block(
         Block::default()
             .borders(Borders::ALL)
             .title("Preview")
             .style(theme.preview_block_style),
     );
-    // split area into main preview and a vertical scrollbar
-    let cols = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Min(0), Constraint::Length(1)].as_ref())
-        .split(area);
     f.render_widget(preview, cols[0]);
     let max_lines = (cols[0].height as usize).saturating_sub(2);
     // Render scrollbar for preview using ratatui::widgets::Scrollbar
