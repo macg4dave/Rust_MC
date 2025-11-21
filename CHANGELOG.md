@@ -3,6 +3,11 @@
 ## Unreleased
 
 - Add Command Line and Menu Bar integration
+
+- UI: add dedicated file-stats column and centralize layout using ratatui
+  - New `file_stats_visible` flag in `App` and setting `file_stats_visible` + `file_stats_width` persisted in settings
+  - Preview no longer falls back to rendering details; a dedicated `Details` column renders file metadata when enabled
+  - Updated UI layout and tests to support the new column
   - New `CommandLineState` in `App` and `ui::command_line` drawing/handler.
   - Simple command registry (`app::runner::commands::execute_command`) supporting `toggle-preview`, `menu-next`, `menu-prev`, and `menu-activate`.
   - Menu bar now activates on left-click (mouse handler updated).

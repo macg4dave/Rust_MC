@@ -47,6 +47,9 @@ pub fn run_app(
     // Load persisted settings from disk if available and apply.
     if let Ok(s) = crate::app::settings::load_settings() {
         app.settings = s;
+        // Apply any persisted UI-only flags into live app state so settings
+        // correctly reflect the desired layout (for example file-stats).
+        app.file_stats_visible = app.settings.file_stats_visible;
     }
 
     // Re-apply CLI-provided startup overrides (CLI should win over persisted settings).
