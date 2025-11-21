@@ -1,5 +1,12 @@
-use super::*;
+//! Core `App` methods: high-level operations modifying application state.
+//!
+//! This file exposes `impl App { ... }` helpers (refresh, navigation,
+//! progress handling) that operate on the public `App` state defined in
+//! `app::core::mod`.
+
 use std::io;
+
+use super::{init, App, Panel, Mode, Side, SortKey};
 
 impl App {
     // Helper: refresh only the active panel
@@ -9,7 +16,7 @@ impl App {
 
     pub fn new() -> io::Result<Self> {
         let cwd = std::env::current_dir()?;
-        let mut app = super::init::with_cwd(cwd);
+        let mut app = init::with_cwd(cwd);
         app.refresh()?;
         Ok(app)
     }

@@ -1,14 +1,15 @@
 use crate::app::types::Entry;
 use chrono::{DateTime, Local};
+use std::collections::HashSet;
 use std::io;
 use std::path::PathBuf;
 use walkdir::WalkDir;
 
-/// Lightweight panel state used by the application core.
-///
-/// This struct intentionally stores only UI-independent state so the core
-/// can be unit-tested without rendering. It represents a single side of the
-/// dual-pane file manager (left or right).
+/// Panel holds the minimal, UI-independent state for one side of the
+/// dual-pane file manager. It intentionally keeps presentation details
+/// (such as rendering rows) out of the model so the core can be tested
+/// without a terminal.
+#[derive(Debug)]
 pub struct Panel {
     /// Current working directory shown by this panel.
     pub cwd: PathBuf,
@@ -26,7 +27,7 @@ pub struct Panel {
     /// Scroll offset for the preview text.
     pub preview_offset: usize,
     /// Selected entry indices for multi-selection (domain indexes into `entries`).
-    pub selections: std::collections::HashSet<usize>,
+    pub selections: HashSet<usize>,
 }
 
 impl Panel {
@@ -39,16 +40,16 @@ impl Panel {
             offset: 0,
             preview: String::new(),
             preview_offset: 0,
-            selections: std::collections::HashSet::new(),
+            selections: HashSet::new(),
         }
     }
 
     /// Toggle selection of the currently selected entry (if any).
     pub fn toggle_selection(&mut self) {
         if let Some(idx) = super::utils::ui_to_entry_index(self.selected, self) {
-            if self.selections.contains(&idx) {
-                self.selections.remove(&idx);
-            } else {
+            // `HashSet::remove` returns whether the value was present.
+            // If it wasn't present, insert it (toggle behaviour).
+            if !self.selections.remove(&idx) {
                 self.selections.insert(idx);
             }
         }
@@ -64,11 +65,8 @@ impl Panel {
     /// if the UI selected index refers to an actual item (i.e. not the
     /// header or the parent row).
     pub fn selected_entry(&self) -> Option<&Entry> {
-        if let Some(idx) = super::utils::ui_to_entry_index(self.selected, self) {
-            self.entries.get(idx)
-        } else {
-            None
-        }
+        super::utils::ui_to_entry_index(self.selected, self)
+            .and_then(|idx| self.entries.get(idx))
     }
 
     /// Move selection down by one, clamping at the last UI row.
@@ -109,22 +107,25 @@ impl Panel {
             self.offset = 0;
             return;
         }
-        // If selected is above the visible area, move offset up.
+        // If `selected` is above the viewport, bring it to the top.
         if self.selected < self.offset {
             self.offset = self.selected;
             return;
         }
-        // If selected is below the visible area, move offset down so it is visible.
+
+        // If `selected` is below the viewport, move the offset so it becomes
+        // visible at the bottom of the viewport (or as low as possible).
         let max_offset = total_rows.saturating_sub(height);
         if self.selected >= self.offset + height {
-            self.offset = std::cmp::min(self.selected + 1 - height, max_offset);
+            let desired = self.selected + 1 - height;
+            self.offset = std::cmp::min(desired, max_offset);
         } else if self.offset > max_offset {
-            // Clamp offset if viewport is larger than remaining items.
+            // Clamp offset when viewport is larger than the remaining rows.
             self.offset = max_offset;
         }
     }
 
-    /// Set preview text and reset preview scroll.
+    /// Replace the preview text and reset the preview scroll offset.
     pub fn set_preview(&mut self, text: String) {
         self.preview = text;
         self.preview_offset = 0;
@@ -133,21 +134,35 @@ impl Panel {
     /// Read directory entries and return a Vec<Entry>.
     /// This centralises the filesystem access and metadata reading used by
     /// `App::refresh_panel` and keeps the Panel's path-related concerns in one place.
+    /// Read the immediate children of the panel's `cwd` and return them as
+    /// a `Vec<Entry>`. This is intentionally a thin wrapper around
+    /// filesystem access so callers can handle errors appropriately.
     pub(crate) fn read_entries(&self) -> io::Result<Vec<Entry>> {
-        let mut ents = Vec::new();
-        for entry in WalkDir::new(&self.cwd).min_depth(1).max_depth(1).follow_links(false) {
-            let e = entry.map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-            let meta = e.metadata()?;
-            let modified = meta.modified().ok().map(DateTime::<Local>::from);
-            let name = e.file_name().to_string_lossy().into_owned();
-            let path = e.path().to_path_buf();
-            if meta.is_dir() {
-                ents.push(Entry::directory(name, path, modified));
+        let mut entries_vec = Vec::new();
+
+        for dir_entry_result in WalkDir::new(&self.cwd)
+            .min_depth(1)
+            .max_depth(1)
+            .follow_links(false)
+        {
+            let dir_entry = dir_entry_result
+                .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+
+            let metadata = dir_entry.metadata()?;
+            let modified_time = metadata.modified().ok().map(DateTime::<Local>::from);
+            let name = dir_entry.file_name().to_string_lossy().into_owned();
+            let path_buf = dir_entry.path().to_path_buf();
+
+            let file_entry = if metadata.is_dir() {
+                Entry::directory(name, path_buf, modified_time)
             } else {
-                ents.push(Entry::file(name, path, meta.len(), modified));
-            }
+                Entry::file(name, path_buf, metadata.len(), modified_time)
+            };
+
+            entries_vec.push(file_entry);
         }
-        Ok(ents)
+
+        Ok(entries_vec)
     }
 }
 
@@ -169,5 +184,15 @@ mod tests {
         names.sort();
         assert!(names.contains(&"a.txt".to_string()));
         assert!(names.contains(&"subdir".to_string()));
+    }
+
+    #[test]
+    fn read_entries_empty_dir_returns_empty() {
+        let temp = assert_fs::TempDir::new().unwrap();
+        // no children created
+
+        let p = Panel::new(temp.path().to_path_buf());
+        let entries = p.read_entries().unwrap();
+        assert!(entries.is_empty(), "expected no entries in empty temp dir");
     }
 }

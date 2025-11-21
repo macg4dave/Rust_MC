@@ -1,5 +1,11 @@
-use super::*;
+//! App initialization helpers (pure constructors used by tests and callers).
+//!
+//! Keep functions here side-effect free: they should construct `App`
+//! instances without performing filesystem I/O.
+
 use std::path::PathBuf;
+
+use super::{App, Panel, Side, Mode, SortKey};
 
 /// App initialization helpers.
 ///
