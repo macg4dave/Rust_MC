@@ -3,8 +3,11 @@
 This directory will contain the new Ratatui-first UI implementation.
 
 Structure
+
 - `ui_main.rs` — primary entry and layout renderer
+
 - `widgets/` — small, focused widgets (header, footer, file_list, preview)
+
 - `tests/` — layout rendering tests using TestBackend
 
 Design goals:
