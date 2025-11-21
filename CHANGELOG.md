@@ -185,3 +185,17 @@
         (selection does not underflow or overflow).
       - These tests exercise the context-menu handler and help protect the
         `ContextAction` parsing and navigation logic.
+
+- Refactor: runner command parsing and execution
+  - Refactored `app/src/runner/commands.rs` for clarity and idiomatic Rust:
+    - Introduced a small `ParsedCommand` enum and the `parse_command` helper
+      to separate textual command parsing from execution.
+    - Added `ParsedCommand::execute` and a typed `execute_command` entry
+      point that operates on `App` for clearer semantics and testability.
+    - Kept `perform_action` available and restored public visibility where
+      needed to preserve existing consumers and tests.
+  - Added an integration test `app/tests/execute_command_integration.rs`
+    that exercises `execute_command` end-to-end (menu navigation, preview
+    toggle and activation) and validates `App` state transitions.
+  - Result: improved maintainability, clearer parsing/dispatch separation
+    and the test-suite passes after the change.

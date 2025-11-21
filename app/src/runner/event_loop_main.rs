@@ -1,13 +1,39 @@
 use crate::app::App;
-use crate::input::{poll, read_event, InputEvent};
+use crate::input::{poll, read_event, InputEvent, MouseEvent, KeyCode};
 use crate::runner::handlers;
 use crate::runner::terminal::{restore_terminal, TerminalGuard};
 use std::sync::mpsc::Receiver;
 use crate::ui;
-
 use std::time::Duration;
+// path types are referenced behind feature gates where needed
+
 #[cfg(feature = "fs-watch")]
 use std::sync::mpsc::channel as mpsc_channel;
+
+/// Map a filesystem watcher [`FsEvent`] to the set of `Side` values that
+/// should be refreshed.
+///
+/// This function inspects the provided filesystem event and determines
+/// whether it affects the left panel directory, the right panel
+/// directory, or both. The returned vector is deduplicated and sorted
+/// in canonical order (Left then Right) so callers can rely on a stable
+/// iteration order when refreshing panels.
+///
+/// # Parameters
+/// - `evt`: filesystem event emitted by the watcher.
+/// - `left`: path of the left panel current working directory.
+/// - `right`: path of the right panel current working directory.
+///
+/// # Returns
+/// A `Vec<crate::app::Side>` containing zero, one, or both sides that need
+/// to be refreshed.
+///
+/// # Note
+/// This helper is feature-gated behind `fs-watch` so the crate does not
+/// take a hard dependency on the watcher types when that feature is
+/// disabled. Keeping it small and pure makes it easy to unit-test.
+#[cfg(feature = "fs-watch")]
+use crate::runner::watch_helpers::affected_sides_from_fs_event;
 
 pub fn run_app(
     mut terminal: TerminalGuard,
@@ -36,10 +62,27 @@ pub fn run_app(
     }
 
     // Track current mouse capture state so we can toggle it at runtime when
-    // user changes the `mouse_enabled` setting in the UI.
-    let mut mouse_capture_enabled = app.settings.mouse_enabled;
-    // If settings requested mouse disabled, turn off capture now (init enabled it).
-    if !mouse_capture_enabled {
+    // user changes the `mouse_enabled` setting in the UI. Use a small enum
+    // for clearer intent instead of a raw boolean.
+    /// Represents whether terminal mouse capture is currently enabled.
+    ///
+    /// This lightweight enum replaces a raw `bool` to make intent clearer
+    /// when toggling terminal mouse capture at runtime. A `From<bool>`
+    /// implementation and an `as_bool()` accessor are provided for
+    /// ergonomic conversion to/from existing boolean settings.
+    enum MouseCapture {
+        Enabled,
+        Disabled,
+    }
+    impl From<bool> for MouseCapture {
+        fn from(b: bool) -> Self { if b { MouseCapture::Enabled } else { MouseCapture::Disabled } }
+    }
+    impl MouseCapture {
+        fn as_bool(&self) -> bool { matches!(self, MouseCapture::Enabled) }
+    }
+
+    let mut mouse_capture = MouseCapture::from(app.settings.mouse_enabled);
+    if !mouse_capture.as_bool() {
         let _ = crate::runner::terminal::disable_mouse_capture_on_terminal(&mut terminal);
     }
 
@@ -51,8 +94,10 @@ pub fn run_app(
     #[cfg(feature = "fs-watch")]
     // Manage watcher join handles and stop senders per side so we can restart
     // watchers when the panel cwd changes during runtime.
+    #[allow(unused_assignments)]
     let mut left_watcher: Option<(std::thread::JoinHandle<()>, std::sync::mpsc::Sender<()>)> = None;
     #[cfg(feature = "fs-watch")]
+    #[allow(unused_assignments)]
     let mut right_watcher: Option<(std::thread::JoinHandle<()>, std::sync::mpsc::Sender<()>)> = None;
     #[cfg(feature = "fs-watch")]
     {
@@ -69,6 +114,8 @@ pub fn run_app(
         let h_right = crate::fs_op::watcher::spawn_watcher(right_path, tx_right, stop_rx_right);
         right_watcher = Some((h_right, stop_tx_right));
     }
+    
+
     #[cfg(feature = "fs-watch")]
     let mut prev_left = app.left.cwd.clone();
     #[cfg(feature = "fs-watch")]
@@ -79,36 +126,7 @@ pub fn run_app(
         // If watcher signalled a filesystem event, trigger a refresh and redraw.
         #[cfg(feature = "fs-watch")]
         if let Ok(evt) = fs_rx.try_recv() {
-            use crate::fs_op::watcher::FsEvent;
-            use crate::app::Side;
-
-            // Map an FsEvent to affected panel sides and refresh those
-            // panels only. This keeps UI updates more granular and avoids
-            // unnecessary work when only one side is impacted.
-            let mut affected: Vec<Side> = Vec::new();
-            match evt {
-                FsEvent::Create(p) | FsEvent::Modify(p) | FsEvent::Remove(p) => {
-                    if p.starts_with(&app.left.cwd) {
-                        affected.push(Side::Left);
-                    }
-                    if p.starts_with(&app.right.cwd) {
-                        affected.push(Side::Right);
-                    }
-                }
-                FsEvent::Rename(a, b) => {
-                    if a.starts_with(&app.left.cwd) || b.starts_with(&app.left.cwd) {
-                        affected.push(Side::Left);
-                    }
-                    if a.starts_with(&app.right.cwd) || b.starts_with(&app.right.cwd) {
-                        affected.push(Side::Right);
-                    }
-                }
-                FsEvent::Other => {}
-            }
-
-            // Deduplicate and refresh affected sides.
-            affected.sort_by_key(|s| match s { Side::Left => 0, Side::Right => 1 });
-            affected.dedup();
+            let affected = affected_sides_from_fs_event(&evt, &app.left.cwd, &app.right.cwd);
             for side in affected {
                 let _ = app.refresh_side(side);
             }
@@ -193,11 +211,12 @@ pub fn run_app(
             // - keep non-move mouse events in order
             // - coalesce multiple Mouse::Moved into the last one
             // - remember last resize and trigger an immediate redraw
-            use crate::input::MouseEvent as AppMouseEvent;
+                // Removed unused alias for MouseEvent
+                // use crate::input::MouseEvent as AppMouseEvent;
 
-            let mut key_events = Vec::new();
-            let mut other_mouse = Vec::new();
-            let mut last_mouse_move: Option<AppMouseEvent> = None;
+            let mut key_events: Vec<KeyCode> = Vec::new();
+            let mut other_mouse: Vec<MouseEvent> = Vec::new();
+            let mut last_mouse_move: Option<MouseEvent> = None;
             let mut last_resize: Option<(u16, u16)> = None;
 
             for ev in events {
@@ -252,14 +271,12 @@ pub fn run_app(
 
             // If the user toggled the mouse setting in handlers, reflect this
             // by enabling/disabling mouse capture on the terminal instance.
-            if app.settings.mouse_enabled != mouse_capture_enabled {
-                mouse_capture_enabled = app.settings.mouse_enabled;
-                if mouse_capture_enabled {
-                    let _ =
-                        crate::runner::terminal::enable_mouse_capture_on_terminal(&mut terminal);
+            if app.settings.mouse_enabled != mouse_capture.as_bool() {
+                mouse_capture = MouseCapture::from(app.settings.mouse_enabled);
+                if mouse_capture.as_bool() {
+                    let _ = crate::runner::terminal::enable_mouse_capture_on_terminal(&mut terminal);
                 } else {
-                    let _ =
-                        crate::runner::terminal::disable_mouse_capture_on_terminal(&mut terminal);
+                    let _ = crate::runner::terminal::disable_mouse_capture_on_terminal(&mut terminal);
                 }
             }
             if should_exit {
@@ -271,4 +288,31 @@ pub fn run_app(
     // Restore terminal state before exiting.
     restore_terminal(terminal)?;
     Ok(())
+}
+
+#[cfg(all(test, feature = "fs-watch"))]
+mod tests {
+    use super::affected_sides_from_fs_event;
+    use crate::fs_op::watcher::FsEvent;
+    use crate::app::Side;
+    use std::path::PathBuf;
+
+    #[test]
+    fn affected_sides_create_left() {
+        let left = std::path::Path::new("/tmp/left");
+        let right = std::path::Path::new("/tmp/right");
+        let ev = FsEvent::Create(PathBuf::from("/tmp/left/file.txt"));
+        let sides = affected_sides_from_fs_event(&ev, left, right);
+        assert_eq!(sides, vec![Side::Left]);
+    }
+
+    #[test]
+    fn affected_sides_rename_both() {
+        let left = std::path::Path::new("/tmp/left");
+        let right = std::path::Path::new("/tmp/right");
+        let ev = FsEvent::Rename(PathBuf::from("/tmp/left/a"), PathBuf::from("/tmp/right/b"));
+        let mut sides = affected_sides_from_fs_event(&ev, left, right);
+        sides.sort_by_key(|s| match s { Side::Left => 0, Side::Right => 1 });
+        assert_eq!(sides, vec![Side::Left, Side::Right]);
+    }
 }
