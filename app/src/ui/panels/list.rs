@@ -136,7 +136,15 @@ pub fn draw_list(f: &mut Frame, area: Rect, panel: &Panel, active: bool, cli_mod
             Style::default()
         };
         // Build spans for columns: name | size | modified | perms
-        let icon = if e.entry.is_dir { "📁 " } else { "📄 " };
+        // Use a plain, CLI-friendly name prefix when in cli_mode; emojis are
+        // avoided so the output resembles classic dual-pane file managers.
+        let icon = if cli_mode {
+            ""
+        } else if e.entry.is_dir {
+            "📁 "
+        } else {
+            "📄 "
+        };
         // Determine if this visible ui row corresponds to a domain entry and
         // whether it is selected in the panel's multi-selection set.
         let ui_index = panel.offset + i;
@@ -277,4 +285,44 @@ pub fn draw_list(f: &mut Frame, area: Rect, panel: &Panel, active: bool, cli_mod
         .thumb_style(theme.scrollbar_thumb_style)
         .track_style(theme.scrollbar_style);
     f.render_stateful_widget(sb, cols[1], &mut sb_state);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::app::Panel;
+    use ratatui::backend::TestBackend;
+    use ratatui::Terminal;
+    use std::path::PathBuf;
+    use chrono::Local;
+
+    #[test]
+    fn draw_list_cli_smoke_test() {
+        let backend = TestBackend::new(80, 12);
+        let mut terminal = Terminal::new(backend).expect("failed to create terminal");
+
+        let mut panel = Panel::new(PathBuf::from("/tmp"));
+        panel.entries.push(crate::app::types::Entry::directory("subdir", PathBuf::from("/tmp/subdir"), Some(Local::now())));
+        panel.entries.push(crate::app::types::Entry::file("foo.txt", PathBuf::from("/tmp/foo.txt"), 128, Some(Local::now())));
+
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 80, 12);
+            draw_list(f, area, &panel, true, true);
+        }).expect("failed to draw");
+    }
+
+    #[test]
+    fn draw_list_noncli_smoke_test() {
+        let backend = TestBackend::new(80, 12);
+        let mut terminal = Terminal::new(backend).expect("failed to create terminal");
+
+        let mut panel = Panel::new(PathBuf::from("/tmp"));
+        panel.entries.push(crate::app::types::Entry::directory("subdir", PathBuf::from("/tmp/subdir"), Some(Local::now())));
+        panel.entries.push(crate::app::types::Entry::file("foo.txt", PathBuf::from("/tmp/foo.txt"), 128, Some(Local::now())));
+
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 80, 12);
+            draw_list(f, area, &panel, true, false);
+        }).expect("failed to draw");
+    }
 }

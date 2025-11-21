@@ -23,7 +23,28 @@ instructions give AI agents precise, actionable guidance.
 -   No unwrap() except in trivial test scaffolding.
 -   Keep code idiomatic, modular, and well-documented.
 - do not remove crate uses without checking for usage.
-
+-   use ratatui and crossterm idioms and patterns where applicable.
+- use ratatui layout and widget systems properly.
+- ratatui event handling and rendering patterns must be followed.
+-ratatui styling and theming conventions must be used.
+- crossterm terminal control and input handling must be correct.
+- crossterm async and sync patterns must be followed.
+- crossterm error handling must be robust.
+- crossterm performance best practices must be observed.
+- crossterm cross-platform compatibility must be ensured.
+- ratatui and crossterm version compatibility must be maintained.
+- ratatui and crossterm community conventions must be respected.
+- ratatui and crossterm security best practices must be followed.
+- ratatui and crossterm testing patterns must be used.
+- ratatui and crossterm documentation standards must be upheld.
+- ratatui and crossterm code organization must be logical.
+- ratatui and crossterm dependency management must be careful.
+- ratatui and crossterm resource management must be efficient.
+- ratatui and crossterm concurrency patterns must be correct.
+- ratatui and crossterm error propagation must be proper.
+- ratatui and crossterm logging practices must be followed.
+- ratatui and crossterm configuration management must be sound.
+- ratatui and crossterm usability best practices must be observed.
 ------------------------------------------------------------------------
 
 📦 Project Overview
