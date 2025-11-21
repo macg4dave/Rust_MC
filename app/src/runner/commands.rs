@@ -1,8 +1,9 @@
 use crate::app::{Action, App};
+use crate::fs_op::error::FsOpError;
 use anyhow::Result;
 
 /// Perform an Action on the given app instance.
-pub fn perform_action(app: &mut App, action: Action) -> std::io::Result<()> {
+pub fn perform_action(app: &mut App, action: Action) -> Result<(), FsOpError> {
     match action {
         Action::DeleteSelected => app.delete_selected(),
         Action::CopyTo(p) => app.copy_selected_to(p),

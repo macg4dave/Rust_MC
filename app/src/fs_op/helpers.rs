@@ -172,6 +172,25 @@ pub fn atomic_rename_or_copy(src: &std::path::Path, dst: &std::path::Path) -> io
         return Ok(());
     }
 
+    // If the source is a directory, delegate to the move_path helper which
+    // performs a recursive, fs_extra-backed copy+remove fallback when a
+    // simple rename is not possible (cross-device moves, etc.). This keeps
+    // semantics consistent between file and directory moves.
+    if src.is_dir() {
+        match fs::rename(src, dst) {
+            Ok(_) => return Ok(()),
+            Err(_e) => {
+                // Use the mv helper which returns its own error type; map to io::Error
+                return match crate::fs_op::mv::move_path(src, dst) {
+                    Ok(()) => Ok(()),
+                    Err(e) => Err(io::Error::new(io::ErrorKind::Other, e.to_string())),
+                };
+            }
+        }
+    }
+
+    // For regular files, try a rename first and fall back to an atomic copy
+    // into the destination directory then remove the source file.
     match fs::rename(src, dst) {
         Ok(_) => Ok(()),
         Err(_e) => {

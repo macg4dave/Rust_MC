@@ -5,6 +5,14 @@ use filetime::{FileTime, set_file_times};
 use walkdir::WalkDir;
 use rayon::prelude::*;
 
+#[cfg(unix)]
+use std::os::unix::fs::MetadataExt;
+#[cfg(unix)]
+use nix::unistd::{chown, Gid, Uid};
+#[cfg(unix)]
+use xattr;
+// No external shell tools or native libacl bindings: use xattr-based ACL copy
+
 // Minimal metadata preservation helpers.
 //
 // These helpers provide small utilities to copy common metadata (permissions)
@@ -43,6 +51,39 @@ pub(crate) fn preserve_all_metadata(_src: &Path, _dst: &Path) -> io::Result<()> 
                 let a_ft = FileTime::from_system_time(a);
                 let _ = set_file_times(_dst, a_ft, m_ft);
             }
+            // Try to copy ownership (UID/GID) on Unix when possible.
+            #[cfg(unix)]
+            {
+                let uid = meta.uid();
+                let gid = meta.gid();
+                // Best-effort: ignore errors (permissions may prevent chown).
+                let _ = chown(_dst, Some(Uid::from_raw(uid)), Some(Gid::from_raw(gid)));
+            }
+            // Try to copy extended attributes (xattrs) when available.
+            #[cfg(unix)]
+            {
+                if let Ok(names) = xattr::list(_src) {
+                    for name in names {
+                        let name_s = name.to_string_lossy();
+                        if let Ok(Some(val)) = xattr::get(_src, &*name_s) {
+                            let _ = xattr::set(_dst, &*name_s, &val);
+                        }
+                    }
+                }
+
+                // Best-effort: copy POSIX ACLs by copying the well-known binary xattr
+                // names used on many Linux filesystems. This avoids invoking external
+                // tools or linking against libacl and keeps the implementation fully
+                // Rust-contained. The xattr names are filesystem-dependent; failures are
+                // silently ignored as this is best-effort behaviour.
+                #[cfg(unix)]
+                {
+                    // Use the Rust-only POSIX ACL helper to round-trip ACL blobs.
+                    if let Ok(Some(acl)) = crate::fs_op::posix_acl::PosixAcl::read_from_path(_src) {
+                        let _ = acl.write_to_path(_dst);
+                    }
+                }
+            }
         }
         return Ok(());
     }
@@ -77,6 +118,34 @@ pub(crate) fn preserve_all_metadata(_src: &Path, _dst: &Path) -> io::Result<()> 
                 let m_ft = FileTime::from_system_time(m);
                 let a_ft = FileTime::from_system_time(a);
                 let _ = set_file_times(&target, a_ft, m_ft);
+            }
+
+            // Try to copy ownership (UID/GID) on Unix when possible.
+            #[cfg(unix)]
+            {
+                let uid = meta.uid();
+                let gid = meta.gid();
+                let _ = chown(&target, Some(Uid::from_raw(uid)), Some(Gid::from_raw(gid)));
+            }
+
+            // Copy extended attributes when possible (best-effort).
+            #[cfg(unix)]
+            {
+                if let Ok(names) = xattr::list(e.path()) {
+                    for name in names {
+                        let name_s = name.to_string_lossy();
+                        if let Ok(Some(val)) = xattr::get(e.path(), &*name_s) {
+                            let _ = xattr::set(&target, &*name_s, &val);
+                        }
+                    }
+                }
+
+                #[cfg(unix)]
+                {
+                    if let Ok(Some(acl)) = crate::fs_op::posix_acl::PosixAcl::read_from_path(e.path()) {
+                        let _ = acl.write_to_path(&target);
+                    }
+                }
             }
         }
     });

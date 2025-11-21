@@ -83,6 +83,19 @@
     `app/src/app/core/init.rs`: replaced `use super::*` globs with explicit
     imports and added brief module docs.
 
+- Switch POSIX ACL handling to Rust-only xattr round-trip
+  - Add `app/src/fs_op/posix_acl.rs` which preserves POSIX ACLs by
+    reading and writing the `system.posix_acl_access` and
+    `system.posix_acl_default` xattrs as opaque binary blobs (round-trip).
+  - Remove reliance on native `libacl` bindings and external `getfacl`/
+    `setfacl` invocations; `app/Cargo.toml` cleaned of the optional
+    `posix-acl` binding, the `acl-native` feature and the `which` helper.
+  - Behaviour is best-effort: ACL xattr read/write failures are handled
+    gracefully and the unit test `fs_op::posix_acl::tests::roundtrip_acl_xattrs`
+    will skip when xattrs are not supported on the host filesystem.
+  - Rationale: keep the `app` crate self-contained in Rust and avoid
+    link-time/runtime failures on systems without system ACL libraries.
+
 ### Notes
 
 - Tests run locally and currently pass.

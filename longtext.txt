@@ -33,3 +33,7 @@ Update and improve all comments
 update and improve all usage infomation
 
 Make all vatiable names more verbose and easier to read
+
+Do not remove or alter the create usage unless explicitly unless correcting/impoving incorrect behaviour
+
+Use crates whereever possible

@@ -17,6 +17,12 @@ instructions give AI agents precise, actionable guidance.
     with comments + tests.
 -   Do not remove modules or functions unless tests confirm they’re
     obsolete.
+    - Do not remove crates from Cargo.toml unless confirmed unused.
+    do not remove dependencies without checking for usage.
+    do not remove tests unless they are obsolete or redundant.
+-   No unwrap() except in trivial test scaffolding.
+-   Keep code idiomatic, modular, and well-documented.
+- do not remove crate uses without checking for usage.
 
 ------------------------------------------------------------------------
 
