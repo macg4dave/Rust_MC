@@ -10,6 +10,11 @@ Structure
 
 - `tests/` — layout rendering tests using TestBackend
 
+Run demo: from `app/` crate run:
+
+	cargo test -p fileZoom --test ui_layout
+
+
 Design goals:
 
 - Adaptive / responsive layout
