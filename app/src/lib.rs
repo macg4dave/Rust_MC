@@ -3,6 +3,7 @@ pub mod app;
 pub mod errors;
 pub mod fs_op;
 pub mod input;
+pub mod parallel;
 #[path = "runner/mod.rs"]
 pub mod runner;
 #[path = "ui/mod.rs"]

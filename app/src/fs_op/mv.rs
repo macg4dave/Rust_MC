@@ -3,6 +3,7 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
+use rayon::prelude::*;
 
 /// Errors returned by move/copy helpers.
 #[derive(Debug)]
@@ -65,9 +66,14 @@ pub fn copy_path<P: AsRef<Path>, Q: AsRef<Path>>(src: P, dest: Q) -> Result<(), 
         // Use fs_extra to copy the directory contents into `d`.
         fs::create_dir_all(d).map_err(MvError::Io)?;
         // Walk the source directory recursively and mirror into `d`.
+        // Collect entries first so we can create directories deterministically
+        // then copy files in parallel to improve throughput on multi-core systems.
+        let mut dirs_to_create: Vec<PathBuf> = Vec::new();
+        let mut files_to_copy: Vec<(PathBuf, PathBuf)> = Vec::new();
+
         for entry in WalkDir::new(s).min_depth(1).follow_links(false) {
             let entry = entry.map_err(|e| MvError::Io(io::Error::new(io::ErrorKind::Other, e)))?;
-            let from = entry.path();
+            let from = entry.path().to_path_buf();
             let rel = from
                 .strip_prefix(s)
                 .map_err(|e| MvError::Io(io::Error::new(io::ErrorKind::Other, e)))?;
@@ -75,14 +81,37 @@ pub fn copy_path<P: AsRef<Path>, Q: AsRef<Path>>(src: P, dest: Q) -> Result<(), 
             let ft = entry.file_type();
 
             if ft.is_dir() {
-                fs::create_dir_all(&dest_path).map_err(MvError::Io)?;
+                dirs_to_create.push(dest_path);
             } else if ft.is_file() {
-                if let Some(parent) = dest_path.parent() {
-                    fs::create_dir_all(parent).map_err(MvError::Io)?;
-                }
-                crate::fs_op::helpers::atomic_copy_file(from, &dest_path).map_err(MvError::Io)?;
+                files_to_copy.push((from, dest_path));
             } else {
                 // Skip other file types (symlinks, device nodes)
+            }
+        }
+
+        // Create directories sequentially to avoid races when creating parents.
+        dirs_to_create.sort();
+        dirs_to_create.dedup();
+        for dir in dirs_to_create {
+            fs::create_dir_all(&dir).map_err(MvError::Io)?;
+        }
+
+        // Copy files in parallel. Collect results and return the first error if any.
+        let file_results: Vec<Result<(), io::Error>> = files_to_copy
+            .into_par_iter()
+            .map(|(from, dest_path)| {
+                if let Some(parent) = dest_path.parent() {
+                    if let Err(e) = fs::create_dir_all(parent) {
+                        return Err(e);
+                    }
+                }
+                crate::fs_op::helpers::atomic_copy_file(&from, &dest_path).map(|_| ())
+            })
+            .collect();
+
+        for r in file_results {
+            if let Err(e) = r {
+                return Err(MvError::Io(e));
             }
         }
     } else {

@@ -3,6 +3,7 @@ use std::io;
 use std::path::Path;
 use filetime::{FileTime, set_file_times};
 use walkdir::WalkDir;
+use rayon::prelude::*;
 
 // Minimal metadata preservation helpers.
 //
@@ -50,27 +51,34 @@ pub(crate) fn preserve_all_metadata(_src: &Path, _dst: &Path) -> io::Result<()> 
     // to each matching path under dst. We tolerate missing targets and
     // treat metadata copying as best-effort to avoid hard failures during
     // bulk copies.
-    for entry in WalkDir::new(_src).follow_links(false) {
-        if let Ok(e) = entry {
-            let rel = match e.path().strip_prefix(_src) {
-                Ok(r) => r,
-                Err(_) => continue,
-            };
-            let target = _dst.join(rel);
-            if !target.exists() {
-                continue;
-            }
-            // copy permissions
-            let _ = copy_permissions(e.path(), &target);
-            // copy timestamps
-            if let Ok(meta) = fs::metadata(e.path()) {
-                if let (Ok(m), Ok(a)) = (meta.modified(), meta.accessed()) {
-                    let m_ft = FileTime::from_system_time(m);
-                    let a_ft = FileTime::from_system_time(a);
-                    let _ = set_file_times(&target, a_ft, m_ft);
-                }
+    // Collect entries first then apply metadata in parallel. This improves
+    // throughput on machines with multiple cores while keeping behaviour
+    // best-effort (we ignore missing targets).
+    let entries: Vec<_> = WalkDir::new(_src)
+        .follow_links(false)
+        .into_iter()
+        .filter_map(Result::ok)
+        .collect();
+
+    entries.into_par_iter().for_each(|e| {
+        let rel = match e.path().strip_prefix(_src) {
+            Ok(r) => r,
+            Err(_) => return,
+        };
+        let target = _dst.join(rel);
+        if !target.exists() {
+            return;
+        }
+        // copy permissions
+        let _ = copy_permissions(e.path(), &target);
+        // copy timestamps
+        if let Ok(meta) = fs::metadata(e.path()) {
+            if let (Ok(m), Ok(a)) = (meta.modified(), meta.accessed()) {
+                let m_ft = FileTime::from_system_time(m);
+                let a_ft = FileTime::from_system_time(a);
+                let _ = set_file_times(&target, a_ft, m_ft);
             }
         }
-    }
+    });
     Ok(())
 }

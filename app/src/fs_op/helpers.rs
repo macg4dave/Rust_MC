@@ -2,6 +2,9 @@ use std::fs;
 use std::io;
 use std::path::PathBuf;
 use fs_extra::file::{copy as fs_extra_copy, CopyOptions};
+use std::hash::{Hash, Hasher};
+use std::collections::hash_map::DefaultHasher;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 /// Resolve destination path for an operation: if `dst` looks like a directory
 /// (exists or ends with a separator) then target becomes `dst.join(src_name)`.
@@ -87,18 +90,29 @@ pub fn atomic_copy_file(src: &std::path::Path, dst: &std::path::Path) -> io::Res
     if let Some(dir) = dst.parent() {
         fs::create_dir_all(dir)?;
         let mut tmp = dir.join(".tmp_atomic_copy");
-        // Use a time+pid-based suffix to avoid depending on `rand` here.
+        // Use a time+pid+thread+seq-based suffix to avoid collisions when many
+        // copies run concurrently on multiple threads.
         use std::time::{SystemTime, UNIX_EPOCH};
         let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
         let pid = std::process::id() as u128;
-        let raw = format!("{:x}{:x}", pid, nanos);
+        // Hash the current thread id so the suffix includes a per-thread
+        // component without relying on unstable ThreadId APIs.
+        let thread_id = format!("{:?}", std::thread::current().id());
+        let mut hasher = DefaultHasher::new();
+        thread_id.hash(&mut hasher);
+        let thread_hash = hasher.finish();
+        // Global sequential id to guarantee uniqueness across rapid calls
+        // even if timestamp resolution were insufficient.
+        static NEXT_COPY_ID: AtomicU64 = AtomicU64::new(0);
+        let seq = NEXT_COPY_ID.fetch_add(1, Ordering::Relaxed) as u128;
+        let raw = format!("{:x}{:x}{:x}{:x}", pid, nanos, thread_hash, seq);
         let suffix: String = raw
             .chars()
             .rev()
-            .take(8)
+            .take(12)
             .collect::<String>()
             .chars()
             .rev()
@@ -216,6 +230,86 @@ pub mod tests {
             .get_or_init(|| Mutex::new(()))
             .lock()
             .unwrap()
+    }
+}
+
+#[cfg(test)]
+mod parallel_tests {
+    use super::*;
+    use tempfile::tempdir;
+    use std::fs as stdfs;
+    use rayon::prelude::*;
+
+    #[test]
+    fn atomic_copy_file_parallel_no_temp_collision() {
+        // Create source and destination directories
+        let sdir = tempdir().expect("temp src");
+        let ddir = tempdir().expect("temp dst");
+        // Create many small source files
+        let n = 64;
+        for i in 0..n {
+            let p = sdir.path().join(format!("file_{}.txt", i));
+            stdfs::write(&p, format!("hello {}", i)).expect("write src");
+        }
+
+        // Gather source paths and copy in parallel into dst
+        let srcs: Vec<_> = (0..n)
+            .map(|i| sdir.path().join(format!("file_{}.txt", i)))
+            .collect();
+
+        srcs.into_par_iter().for_each(|src| {
+            let dst = ddir.path().join(src.file_name().unwrap());
+            atomic_copy_file(&src, &dst).expect("copy");
+        });
+
+        // Ensure all destination files are present and no temp files remain
+        let mut found = 0;
+        for entry in stdfs::read_dir(ddir.path()).expect("read dst") {
+            let e = entry.expect("entry");
+            let name = e.file_name().to_string_lossy().to_string();
+            assert!(!name.starts_with(".tmp_atomic_copy."), "temp file left behind: {}", name);
+            found += 1;
+        }
+        assert_eq!(found, n);
+    }
+
+    #[test]
+    fn atomic_copy_file_stress_many_concurrent_copies() {
+        // Stress test: many concurrent copies targeting a smaller set of
+        // destination names to force collisions and exercise temp-file
+        // uniqueness and cleanup.
+        let sdir = tempdir().expect("temp src");
+        let ddir = tempdir().expect("temp dst");
+
+        // Single source file used by all copy tasks.
+        let src = sdir.path().join("shared_src.txt");
+        stdfs::write(&src, "stress-test-content").expect("write src");
+
+        // Many tasks but few distinct destination names to force collisions.
+        let tasks = 1024usize;
+        let dest_names = 16usize;
+
+        let dsts: Vec<std::path::PathBuf> = (0..tasks)
+            .map(|i| ddir.path().join(format!("dst_{}.txt", i % dest_names)))
+            .collect();
+
+        // Run copies in parallel; we ignore individual copy errors because
+        // races on rename may cause some copies to fail — the important
+        // assertion is that no temp files remain.
+        dsts.into_par_iter().for_each(|dst| {
+            let _ = atomic_copy_file(&src, &dst);
+        });
+
+        // After workload finishes ensure there are no leftover temp files.
+        for entry in stdfs::read_dir(ddir.path()).expect("read dst") {
+            let e = entry.expect("entry");
+            let name = e.file_name().to_string_lossy().to_string();
+            assert!(
+                !name.starts_with(".tmp_atomic_copy."),
+                "temp file left behind: {}",
+                name
+            );
+        }
     }
 }
 
