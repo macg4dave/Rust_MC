@@ -14,12 +14,7 @@ use std::path::PathBuf;
 /// - `OverwriteAll`: overwrite this and all subsequent conflicts.
 /// - `SkipAll`: skip this and all subsequent conflicts.
 /// - `Cancel`: abort the whole operation.
-/// A user decision sent from the UI to a background worker when a
-/// conflicting target is reported during a file operation.
-///
-/// The worker sends `ProgressUpdate` messages with `conflict = Some(path)` to
-/// indicate the operation is blocked on a UI decision for `path`. The UI then
-/// responds with an `OperationDecision` through the decision channel.
+// (see `OperationDecision` above)
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum OperationDecision {
     /// Overwrite the conflicting target for this single item.

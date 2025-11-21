@@ -50,7 +50,7 @@ pub fn atomic_write(target: &Path, data: &[u8]) -> io::Result<()> {
 
         let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?
+            .map_err(io::Error::other)?
             .as_nanos();
         let pid = process::id() as u128;
         let raw = format!("{:x}{:x}", pid, nanos);
@@ -66,12 +66,11 @@ pub fn atomic_write(target: &Path, data: &[u8]) -> io::Result<()> {
         // test hook may force a failure to exercise cleanup paths
         if tests::should_force_rename_fail_in_write() {
             let _ = fs::remove_file(&tmp);
-            return Err(io::Error::new(io::ErrorKind::Other, "forced rename failure (write)"));
+            return Err(io::Error::other("forced rename failure (write)"));
         }
 
-        fs::rename(&tmp, target).map_err(|e| {
+        fs::rename(&tmp, target).inspect_err(|_| {
             let _ = fs::remove_file(&tmp);
-            e
         })
     } else {
         // No parent directory — write directly.
@@ -98,7 +97,7 @@ pub fn atomic_copy_file(src: &Path, dst: &Path) -> io::Result<u64> {
         // monotonic sequence counter to avoid collisions in concurrent runs.
         let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?
+            .map_err(io::Error::other)?
             .as_nanos();
         let pid = process::id() as u128;
         let thread_id = format!("{:?}", std::thread::current().id());
@@ -111,23 +110,22 @@ pub fn atomic_copy_file(src: &Path, dst: &Path) -> io::Result<u64> {
         let suffix = raw.chars().rev().take(12).collect::<String>().chars().rev().collect::<String>();
         tmp.set_file_name(format!(".tmp_atomic_copy.{}", suffix));
 
-        let n = fs_extra_copy(src, &tmp, &options).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        let n = fs_extra_copy(src, &tmp, &options).map_err(io::Error::other)?;
 
         // test hook may force a failure to exercise cleanup
         if tests::should_force_rename_fail_in_copy() {
             let _ = fs::remove_file(&tmp);
-            return Err(io::Error::new(io::ErrorKind::Other, "forced rename failure (copy)"));
+            return Err(io::Error::other("forced rename failure (copy)"));
         }
 
-        fs::rename(&tmp, dst).map_err(|e| {
+        fs::rename(&tmp, dst).inspect_err(|_| {
             let _ = fs::remove_file(&tmp);
-            e
         })?;
 
         let _ = crate::fs_op::metadata::preserve_all_metadata(src, dst);
         Ok(n)
     } else {
-        let res = fs_extra_copy(src, dst, &options).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        let res = fs_extra_copy(src, dst, &options).map_err(io::Error::other)?;
         let _ = crate::fs_op::metadata::preserve_all_metadata(src, dst);
         Ok(res)
     }
@@ -151,7 +149,7 @@ pub fn atomic_rename_or_copy(src: &Path, dst: &Path) -> io::Result<()> {
             return Ok(());
         }
         return crate::fs_op::mv::move_path(src, dst)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()));
+            .map_err(|e| io::Error::other(e.to_string()));
     }
 
     if fs::rename(src, dst).is_ok() {

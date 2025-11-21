@@ -118,7 +118,7 @@ impl From<crossterm::event::KeyCode> for KeyCode {
             CtKC::PageDown => KeyCode::PageDown,
             CtKC::Delete => KeyCode::Delete,
             CtKC::Insert => KeyCode::Insert,
-            CtKC::F(n) => KeyCode::F(n as u8),
+            CtKC::F(n) => KeyCode::F(n),
             CtKC::Null => KeyCode::Null,
             _ => KeyCode::Other,
         }

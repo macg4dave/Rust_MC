@@ -29,11 +29,10 @@ use crate::input::KeyCode;
 ///
 /// This extracts the `Mode::Message` branch from `handle_key` to keep the
 /// top-level dispatcher concise and testable.
-// The `Mode::Message` logic is kept inline in the dispatcher below. Extracting
-// it into a helper that also took `&mut App` caused borrow conflicts with the
-// `&mut` borrow of `app.mode` performed by the `match`. The code below mirrors
-// the original behaviour but is clearer and documented.
-
+/// The `Mode::Message` logic is kept inline in the dispatcher below. Extracting
+/// it into a helper that also took `&mut App` caused borrow conflicts with the
+/// `&mut` borrow of `app.mode` performed by the `match`. The code below mirrors
+/// the original behaviour but is clearer and documented.
 /// Top-level key handler that dispatches into smaller submodules.
 ///
 /// Returns `Ok(true)` when the caller should trigger a refresh/redraw.

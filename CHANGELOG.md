@@ -198,4 +198,10 @@
     that exercises `execute_command` end-to-end (menu navigation, preview
     toggle and activation) and validates `App` state transitions.
   - Result: improved maintainability, clearer parsing/dispatch separation
+
+- Chore: reduce high-value Clippy warnings and tidy docs
+  - Convert numerous `io::Error::new(..., ...)` usages to `io::Error::other(...)`.
+  - Remove unnecessary .clone calls on Copy types and replace `map(|s| s.clone())` with `.cloned()`.
+  - Tidy a number of doc comments to resolve doc formatting warnings.
+  - No behaviour changes; all tests pass.
     and the test-suite passes after the change.

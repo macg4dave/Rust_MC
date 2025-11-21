@@ -68,9 +68,9 @@ pub fn copy_path<P: AsRef<Path>, Q: AsRef<Path>>(src: P, dest: Q) -> Result<(), 
         let mut files_to_copy: Vec<(PathBuf, PathBuf)> = Vec::new();
 
         for entry in WalkDir::new(s).min_depth(1).follow_links(false) {
-            let entry = entry.map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+            let entry = entry.map_err(io::Error::other)?;
             let from = entry.path().to_path_buf();
-            let rel = from.strip_prefix(s).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+            let rel = from.strip_prefix(s).map_err(io::Error::other)?;
             let dest_path = d.join(rel);
 
             if entry.file_type().is_dir() {

@@ -31,15 +31,6 @@ pub enum PathError {
 /// - Relative paths are resolved relative to `base`.
 /// - The returned path must exist and be a directory; otherwise a `PathError`
 ///   describing the problem is returned.
-/// Resolve and validate a user-supplied path for changing panel cwd.
-///
-/// Behaviour:
-/// - Empty `input` is an error.
-/// - A leading `~` is expanded to the user's home directory.
-/// - Absolute paths are returned as-is.
-/// - Relative paths are resolved relative to `base`.
-/// - The returned path must exist and be a directory; otherwise a `PathError`
-///   describing the problem is returned.
 pub fn resolve_path(input: &str, base: &Path) -> Result<PathBuf, PathError> {
     let input = input.trim();
     if input.is_empty() {
@@ -76,7 +67,7 @@ fn expand_tilde(input: &str) -> Option<PathBuf> {
     if let Some(ud) = UserDirs::new() {
         let mut p = ud.home_dir().to_path_buf();
         if !rest.is_empty() {
-            let trimmed = rest.trim_start_matches(|c| c == '/' || c == '\\');
+            let trimmed = rest.trim_start_matches(&['/', '\\']);
             p.push(trimmed);
         }
         return Some(p);
@@ -86,7 +77,7 @@ fn expand_tilde(input: &str) -> Option<PathBuf> {
     let home = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE"))?;
     let mut p = PathBuf::from(home);
     if !rest.is_empty() {
-        let trimmed = rest.trim_start_matches(|c| c == '/' || c == '\\');
+        let trimmed = rest.trim_start_matches(&['/', '\\']);
         p.push(trimmed);
     }
     Some(p)

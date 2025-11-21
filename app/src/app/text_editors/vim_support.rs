@@ -33,17 +33,14 @@ pub fn spawn_vim<P: AsRef<Path>>(path: P) -> io::Result<()> {
 	// screen, then enable raw mode.
 	let _ = execute!(stdout, Hide, EnableMouseCapture, EnterAlternateScreen);
 	if let Err(e) = enable_raw_mode() {
-		// Return original spawn error if present, otherwise this one.
-		return status.and_then(|_| Err(e));
+	// Return original spawn error if present, otherwise this one.
+	return status.and(Err(e));
 	}
 
 	// Propagate the editor process status (map to io::Error when appropriate).
 	match status {
 		Ok(s) if s.success() => Ok(()),
-		Ok(s) => Err(io::Error::new(
-			io::ErrorKind::Other,
-			format!("vim exited with status: {}", s),
-		)),
+		Ok(s) => Err(io::Error::other(format!("vim exited with status: {}", s))),
 		Err(e) => Err(e),
 	}
 }

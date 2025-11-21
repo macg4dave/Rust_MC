@@ -146,7 +146,7 @@ impl Panel {
             .follow_links(false)
         {
             let dir_entry = dir_entry_result
-                .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+                .map_err(io::Error::other)?;
 
             let metadata = dir_entry.metadata()?;
             let modified_time = metadata.modified().ok().map(DateTime::<Local>::from);

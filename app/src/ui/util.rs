@@ -38,9 +38,9 @@ pub fn columns_for_file_list(
 /// This helper renders `render_fn` into a buffer of `render_area`, then copies a rectangular
 /// slice determined by `scroll_offset` and `viewport` into the final `buf` at `target_area`.
 ///
-/// - `render_fn` must draw into the provided Frame-like object which is not available here, so we simply
-/// render into Buffer using common ratatui widgets via the provided code path (this helper builds the Buffer
-/// and expects a function that performs drawing into a `Buffer`).
+/// - `render_fn` must draw into the provided Frame-like object which is not available here.
+///   Instead, callers should render into a `Buffer` using common ratatui widgets; this helper builds
+///   the `Buffer` and expects a function that performs drawing into that `Buffer`.
 pub fn splice_buffer_with_offset(
     demo_buf: &Buffer,
     render_area: Rect,

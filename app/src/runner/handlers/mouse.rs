@@ -17,7 +17,7 @@ pub fn handle_mouse(app: &mut App, me: MouseEvent, term_rect: Rect) -> Result<bo
 
     // Fast path: scroll events (wheel) affect the active panel under cursor.
     if matches!(me.kind, MouseEventKind::ScrollUp | MouseEventKind::ScrollDown) {
-        let main_chunks = split_main(chunks[2].clone());
+        let main_chunks = split_main(chunks[2]);
         return handle_scroll(app, &me, &main_chunks);
     }
 
@@ -45,7 +45,7 @@ pub fn handle_mouse(app: &mut App, me: MouseEvent, term_rect: Rect) -> Result<bo
     }
 
     // Panels area
-    let main_chunks = split_main(chunks[2].clone());
+    let main_chunks = split_main(chunks[2]);
 
     // Try to handle direct clicks on panels (select, context menu, start drag, double-click)
     if me.column >= main_chunks[0].x && me.column < main_chunks[0].x + main_chunks[0].width {

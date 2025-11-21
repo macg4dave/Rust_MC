@@ -42,8 +42,8 @@ pub(crate) fn copy_recursive(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io
     // Iterate top-level entries under `src` and copy them into `dst` using
     // `fs_extra` so we get predictable behaviour (each child of `src` is
     // copied into `dst` rather than possibly nesting the source directory).
-    for entry in fs::read_dir(src).map_err(|e| io::Error::new(io::ErrorKind::Other, e))? {
-        let entry = entry.map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    for entry in fs::read_dir(src).map_err(io::Error::other)? {
+        let entry = entry.map_err(io::Error::other)?;
         let path = entry.path();
         let file_name = match entry.file_name().into_string() {
             Ok(s) => s,
@@ -52,7 +52,7 @@ pub(crate) fn copy_recursive(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io
 
         // Use symlink_metadata so we can detect symlinks and special file types
         // without following the link.
-        let meta = fs::symlink_metadata(&path).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        let meta = fs::symlink_metadata(&path).map_err(io::Error::other)?;
 
         if meta.file_type().is_dir() {
             // If the destination directory already exists, copy the contents
@@ -66,11 +66,11 @@ pub(crate) fn copy_recursive(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io
             if dest_dir.exists() {
                 // copy contents into existing dest_dir
                 dir_opts.copy_inside = true;
-                dir_copy(&path, &dest_dir, &dir_opts).map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+                dir_copy(&path, &dest_dir, &dir_opts).map_err(|e| io::Error::other(e.to_string()))?;
             } else {
                 // copy directory as a child of dst
                 dir_opts.copy_inside = false;
-                dir_copy(&path, dst, &dir_opts).map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+                dir_copy(&path, dst, &dir_opts).map_err(|e| io::Error::other(e.to_string()))?;
             }
             continue;
         }
@@ -85,14 +85,14 @@ pub(crate) fn copy_recursive(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io
             let mut file_opts = fs_extra::file::CopyOptions::new();
             file_opts.overwrite = false;
             file_opts.buffer_size = 64 * 1024;
-            file_copy(&path, &dest_file, &file_opts).map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+            file_copy(&path, &dest_file, &file_opts).map_err(|e| io::Error::other(e.to_string()))?;
             continue;
         }
 
         // Handle symlinks and some special file types.
         if meta.file_type().is_symlink() {
             // Recreate the symlink at the destination with the same target.
-            let target = fs::read_link(&path).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+            let target = fs::read_link(&path).map_err(io::Error::other)?;
             let dest_link = dst.join(&file_name);
             // If destination exists, do not overwrite.
             if dest_link.exists() {
@@ -100,14 +100,14 @@ pub(crate) fn copy_recursive(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io
             }
             #[cfg(unix)]
             {
-                unix_symlink(&target, &dest_link).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+                unix_symlink(&target, &dest_link).map_err(io::Error::other)?;
             }
             #[cfg(windows)]
             {
                 if meta.file_type().is_dir() {
-                    windows_symlink_dir(&target, &dest_link).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+                    windows_symlink_dir(&target, &dest_link).map_err(io::Error::other)?;
                 } else {
-                    windows_symlink_file(&target, &dest_link).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+                    windows_symlink_file(&target, &dest_link).map_err(io::Error::other)?;
                 }
             }
             continue;
@@ -124,7 +124,7 @@ pub(crate) fn copy_recursive(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io
             if meta.file_type().is_fifo() {
                 // Create a FIFO at dest with the same mode bits as source (best-effort).
                 let mode = meta.permissions().mode() & 0o777;
-                let cstr = CString::new(dest_path.as_os_str().as_bytes()).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+                let cstr = CString::new(dest_path.as_os_str().as_bytes()).map_err(io::Error::other)?;
                 let res = unsafe { libc::mkfifo(cstr.as_ptr(), mode as libc::mode_t) };
                 if res != 0 {
                     return Err(io::Error::last_os_error());
@@ -138,7 +138,7 @@ pub(crate) fn copy_recursive(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io
                 use std::os::unix::fs::MetadataExt;
                 let mode = meta.permissions().mode();
                 let rdev = meta.rdev();
-                let cstr = CString::new(dest_path.as_os_str().as_bytes()).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+                let cstr = CString::new(dest_path.as_os_str().as_bytes()).map_err(io::Error::other)?;
                 let kind = if meta.file_type().is_char_device() { libc::S_IFCHR } else { libc::S_IFBLK };
                 let m: libc::mode_t = (mode & 0o7777) as libc::mode_t | kind as libc::mode_t;
                 let dev = rdev as libc::dev_t;

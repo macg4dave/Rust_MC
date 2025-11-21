@@ -71,7 +71,7 @@ pub fn handle_context_menu(app: &mut App, code: KeyCode) -> anyhow::Result<bool>
                 pending_mode = Some(Mode::Normal);
             } else if keybinds::is_enter(&code) {
                 // Snapshot the chosen option before we replace the mode.
-                let choice = options.get(*selected).map(|s| s.clone());
+                let choice = options.get(*selected).cloned();
                 // By default dismiss the context menu; specific actions may
                 // replace this with a message dialog.
                 pending_mode = Some(Mode::Normal);
@@ -81,7 +81,7 @@ pub fn handle_context_menu(app: &mut App, code: KeyCode) -> anyhow::Result<bool>
                     match ContextAction::from_label(ch.as_str()) {
                         ContextAction::View => {
                             app.preview_visible = true;
-                            let _ = app.update_preview_for(app.active);
+                            app.update_preview_for(app.active);
                         }
                         ContextAction::Edit => {
                             if let Some(e) = app.active_panel().selected_entry() {
