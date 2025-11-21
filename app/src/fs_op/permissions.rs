@@ -5,6 +5,7 @@ use std::process;
 use std::time::SystemTime;
 
 use std::result::Result as StdResult;
+use walkdir::WalkDir;
 
 /// Basic permission information for a filesystem path.
 #[derive(Debug, Clone)]
@@ -103,7 +104,14 @@ pub fn inspect_permissions<P: AsRef<Path>>(
 
     // Best-effort read check
     info.can_read = if info.is_dir {
-        fs::read_dir(&path).is_ok()
+        // Use WalkDir to probe directory readability without listing deeply.
+        WalkDir::new(&path)
+            .min_depth(0)
+            .max_depth(0)
+            .into_iter()
+            .next()
+            .map(|r| r.is_ok())
+            .unwrap_or(false)
     } else {
         OpenOptions::new().read(true).open(&path).is_ok()
     };

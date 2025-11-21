@@ -2,6 +2,7 @@ use crate::app::types::Entry;
 use chrono::{DateTime, Local};
 use std::io;
 use std::path::PathBuf;
+use walkdir::WalkDir;
 
 /// Lightweight panel state used by the application core.
 ///
@@ -154,12 +155,12 @@ impl Panel {
     /// `App::refresh_panel` and keeps the Panel's path-related concerns in one place.
     pub(crate) fn read_entries(&self) -> io::Result<Vec<Entry>> {
         let mut ents = Vec::new();
-        for entry in std::fs::read_dir(&self.cwd)? {
-            let e = entry?;
+        for entry in WalkDir::new(&self.cwd).min_depth(1).max_depth(1).follow_links(false) {
+            let e = entry.map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
             let meta = e.metadata()?;
             let modified = meta.modified().ok().map(DateTime::<Local>::from);
             let name = e.file_name().to_string_lossy().into_owned();
-            let path = e.path();
+            let path = e.path().to_path_buf();
             if meta.is_dir() {
                 ents.push(Entry::directory(name, path, modified));
             } else {

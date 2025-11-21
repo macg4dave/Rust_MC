@@ -1,4 +1,5 @@
 use fileZoom::fs_op::permissions::inspect_permissions;
+use walkdir::WalkDir;
 use tempfile::tempdir;
 
 #[test]
@@ -12,10 +13,12 @@ fn probe_writes_do_not_leave_tmp_files() {
 
     // ensure no leftover atomic temp files
     let mut tmp_leftovers = 0;
-    for e in std::fs::read_dir(&p).unwrap().flatten() {
-        if let Some(name) = e.file_name().to_str() {
-            if name.starts_with(".tmp_atomic_write.") {
-                tmp_leftovers += 1;
+    for entry in WalkDir::new(&p).min_depth(1).max_depth(1).follow_links(false) {
+        if let Ok(e) = entry {
+            if let Some(name) = e.file_name().to_str() {
+                if name.starts_with(".tmp_atomic_write.") {
+                    tmp_leftovers += 1;
+                }
             }
         }
     }

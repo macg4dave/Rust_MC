@@ -1,5 +1,6 @@
 use std::io::Read;
 use std::path::Path;
+use walkdir::WalkDir;
 
 /// A simple heuristic to decide whether a file is likely to be binary.
 pub fn is_binary(buf: &[u8]) -> bool {
@@ -44,10 +45,14 @@ pub const MAX_DIR_PREVIEW_ENTRIES: usize = 50;
 
 pub fn build_directory_preview(path: &Path) -> String {
     let mut s = format!("Directory: {}\n", path.display());
-    if let Ok(list) = std::fs::read_dir(path) {
+    if path.is_dir() {
         // Collect and sort entries by filename for deterministic previews
-        let mut names: Vec<String> = list
-            .flatten()
+        let mut names: Vec<String> = WalkDir::new(path)
+            .min_depth(1)
+            .max_depth(1)
+            .follow_links(false)
+            .into_iter()
+            .filter_map(Result::ok)
             .map(|ent| ent.file_name().to_string_lossy().into_owned())
             .collect();
         names.sort();
