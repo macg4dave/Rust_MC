@@ -48,34 +48,32 @@ pub fn handle_mouse(app: &mut App, me: MouseEvent, term_rect: Rect) -> Result<bo
     let main_chunks = split_main(chunks[2]);
 
     // Try to handle direct clicks on panels (select, context menu, start drag, double-click)
-    if me.column >= main_chunks[0].x && me.column < main_chunks[0].x + main_chunks[0].width {
-        if handle_panel_click(main_chunks[0], Side::Left, app, &me)? {
-            return Ok(false);
-        }
+    if me.column >= main_chunks[0].x
+        && me.column < main_chunks[0].x + main_chunks[0].width
+        && handle_panel_click(main_chunks[0], Side::Left, app, &me)?
+    {
+        return Ok(false);
     }
-    if me.column >= main_chunks[1].x && me.column < main_chunks[1].x + main_chunks[1].width {
-        if handle_panel_click(main_chunks[1], Side::Right, app, &me)? {
-            return Ok(false);
-        }
+    if me.column >= main_chunks[1].x
+        && me.column < main_chunks[1].x + main_chunks[1].width
+        && handle_panel_click(main_chunks[1], Side::Right, app, &me)?
+    {
+        return Ok(false);
     }
 
     // Update drag while dragging
-    if matches!(me.kind, MouseEventKind::Drag(MouseButton::Left)) {
-        if handle_drag_update(&main_chunks, app, &me)? {
-            return Ok(false);
-        }
+    if matches!(me.kind, MouseEventKind::Drag(MouseButton::Left)) && handle_drag_update(&main_chunks, app, &me)? {
+        return Ok(false);
     }
 
     // Finish drag on left-button release
-    if matches!(me.kind, MouseEventKind::Up(MouseButton::Left)) {
-        if app.drag_active && app.drag_button == Some(MouseButton::Left) {
+    if matches!(me.kind, MouseEventKind::Up(MouseButton::Left)) && app.drag_active && app.drag_button == Some(MouseButton::Left) {
             app.drag_active = false;
             app.drag_current = Some((me.column, me.row));
             app.drag_start = None;
             app.drag_button = None;
             return Ok(false);
         }
-    }
 
     Ok(false)
 }

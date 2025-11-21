@@ -24,6 +24,12 @@ impl CommandLineState {
     }
 }
 
+impl Default for CommandLineState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Draw the command line into the provided area.
 pub fn draw_command_line(f: &mut Frame, area: Rect, app: &crate::app::core::App) {
     if let Some(cl) = &app.command_line {

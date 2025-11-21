@@ -127,11 +127,7 @@ impl Keybinds {
             // more robust: search for action="..."
             let action = if let Some(a_start) = rest.find("action=\"") {
                 let s = &rest[a_start + 8..];
-                if let Some(endq) = s.find('"') {
-                    Some(s[..endq].to_string())
-                } else {
-                    None
-                }
+                s.find('"').map(|endq| s[..endq].to_string())
             } else {
                 None
             };

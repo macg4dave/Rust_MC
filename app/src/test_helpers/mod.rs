@@ -3,6 +3,9 @@
 // is explicitly enabled.
 
 #[cfg(test)]
+pub use _test_only::{set_up_temp_home, set_up_temp_xdg_config};
+
+#[cfg(test)]
 mod _test_only {
 	use tempfile::TempDir;
 
@@ -27,8 +30,3 @@ mod _test_only {
 		td
 	}
 }
-
-// Re-export test-only helpers at module root when building tests so callers
-// can use `fileZoom::test_helpers::set_up_temp_home()` directly.
-#[cfg(test)]
-pub use _test_only::{set_up_temp_home, set_up_temp_xdg_config};

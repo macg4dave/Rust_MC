@@ -28,7 +28,7 @@ fn settings_handle_settings_direct() {
 
     // Press Enter to toggle mouse_enabled (default true -> false)
     handle_settings(&mut app, KeyCode::Enter).unwrap();
-    assert_eq!(app.settings.mouse_enabled, false);
+    assert!(!app.settings.mouse_enabled);
 
     // Move focus to timeout and increase it by 50ms
     handle_settings(&mut app, KeyCode::Down).unwrap();

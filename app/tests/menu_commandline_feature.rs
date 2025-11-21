@@ -23,7 +23,7 @@ fn format_entry_line_limits_length() {
     let e = fileZoom::app::Entry::file(name, PathBuf::from("/tmp/x"), 1234, None);
     let line = format_entry_line(&e);
     assert!(line.contains("1234"));
-    assert!(line.len() > 0);
+    assert!(!line.is_empty());
 }
 
 #[test]
@@ -35,10 +35,10 @@ fn panel_toggle_selection_and_visibility() {
         fileZoom::app::Entry::file("c", PathBuf::from("/c"), 3, None),
     ];
     // header_count = 1, parent_count likely 0 for root
-    p.selected = 1 + 0 + 1; // select second entry (ui index)
+    p.selected = 2; // select second entry (ui index)
     p.toggle_selection();
     assert!(p.selections.contains(&1usize));
-    p.selected = 1 + 0 + 2; // last entry
+    p.selected = 3; // last entry
     p.ensure_selected_visible(1);
     assert!(p.offset <= p.selected);
 }

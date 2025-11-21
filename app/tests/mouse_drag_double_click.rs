@@ -84,7 +84,7 @@ fn double_click_respected_by_timeout_zero() {
         row: 5,
         kind: MouseEventKind::Down(fileZoom::input::mouse::MouseButton::Left),
     };
-    handlers::handle_mouse(&mut app, me.clone(), term).unwrap();
+    handlers::handle_mouse(&mut app, me, term).unwrap();
     // wait slightly longer than zero so the second click is outside the timeout
     std::thread::sleep(std::time::Duration::from_millis(2));
     handlers::handle_mouse(&mut app, me, term).unwrap();

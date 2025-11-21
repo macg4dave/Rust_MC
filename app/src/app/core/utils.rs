@@ -55,7 +55,7 @@ mod tests {
         // Path without a parent (single-component path) should not add parent row.
         // Use a root path which does not have a parent component on Unix.
         let panel_no_parent = make_panel_with_entries(PathBuf::from("/"), &[]);
-        assert_eq!(ui_row_count(&panel_no_parent), HEADER_ROWS + 0 + 0);
+        assert_eq!(ui_row_count(&panel_no_parent), HEADER_ROWS);
     }
 
     #[test]

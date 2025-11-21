@@ -67,7 +67,7 @@ fn expand_tilde(input: &str) -> Option<PathBuf> {
     if let Some(ud) = UserDirs::new() {
         let mut p = ud.home_dir().to_path_buf();
         if !rest.is_empty() {
-            let trimmed = rest.trim_start_matches(&['/', '\\']);
+                let trimmed = rest.trim_start_matches(['/', '\\']);
             p.push(trimmed);
         }
         return Some(p);
@@ -77,7 +77,7 @@ fn expand_tilde(input: &str) -> Option<PathBuf> {
     let home = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE"))?;
     let mut p = PathBuf::from(home);
     if !rest.is_empty() {
-        let trimmed = rest.trim_start_matches(&['/', '\\']);
+            let trimmed = rest.trim_start_matches(['/', '\\']);
         p.push(trimmed);
     }
     Some(p)

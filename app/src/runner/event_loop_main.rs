@@ -162,7 +162,7 @@ pub fn run_app(
         }
         // If a shutdown signal has been received (e.g. ctrl-c), break so
         // we can restore the terminal cleanly in the outer scope.
-        if let Ok(_) = shutdown_rx.try_recv() {
+        if shutdown_rx.try_recv().is_ok() {
             break;
         }
 

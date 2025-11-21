@@ -17,7 +17,7 @@ pub fn render_header(path_display: &str) -> ListItem<'_> {
 /// Draw a compact panel header into `area` showing the current path.
 pub fn draw_panel_header(f: &mut Frame, area: Rect, path_display: &str) {
     let theme = theme_current();
-    let p = Paragraph::new(format!("{}", path_display)).block(
+    let p = Paragraph::new(path_display.to_string()).block(
         Block::default()
             .borders(Borders::BOTTOM)
             .style(theme.preview_block_style),
@@ -45,7 +45,7 @@ mod tests {
     fn render_header_contains_path() {
         // Ensure render_header returns a ListItem without panicking.
         let li = render_header("/tmp/test/path");
-        let _ = format!("{:?}", li);
-        assert!(true);
+        // Ensure the debug representation renders to a non-empty string.
+        assert!(!format!("{:?}", li).is_empty());
     }
 }

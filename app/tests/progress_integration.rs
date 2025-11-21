@@ -61,14 +61,9 @@ fn conflict_cancel_by_user() {
     // wait for a conflict report
     let mut saw_conflict = false;
     if let Some(rx) = &app.op_progress_rx {
-        loop {
-            match rx.recv_timeout(Duration::from_secs(2)) {
-                Ok(upd) => {
-                    if upd.conflict.is_some() { saw_conflict = true; break; }
-                    if upd.done { break; }
-                }
-                Err(_) => break,
-            }
+        while let Ok(upd) = rx.recv_timeout(Duration::from_secs(2)) {
+            if upd.conflict.is_some() { saw_conflict = true; break; }
+            if upd.done { break; }
         }
     }
     assert!(saw_conflict, "expected worker to report a conflict");
@@ -79,17 +74,12 @@ fn conflict_cancel_by_user() {
     // ensure the worker finishes and reported a cancellation
     let mut saw_cancelled = false;
     if let Some(rx) = &app.op_progress_rx {
-        loop {
-            match rx.recv_timeout(Duration::from_secs(2)) {
-                Ok(upd) => {
-                    if upd.done {
-                        if let Some(err) = &upd.error {
-                            if err.contains("Cancelled") { saw_cancelled = true; }
-                        }
-                        break;
-                    }
+        while let Ok(upd) = rx.recv_timeout(Duration::from_secs(2)) {
+            if upd.done {
+                if let Some(err) = &upd.error {
+                    if err.contains("Cancelled") { saw_cancelled = true; }
                 }
-                Err(_) => break,
+                break;
             }
         }
     }
@@ -165,15 +155,10 @@ fn cancel_mid_operation_via_flag() {
     // Now wait for final cancelled update
     let mut saw_cancel = false;
     if let Some(rx) = &app.op_progress_rx {
-        loop {
-            match rx.recv_timeout(Duration::from_secs(5)) {
-                Ok(upd) => {
-                    if upd.done {
-                        if let Some(err) = &upd.error { if err.contains("Cancelled") { saw_cancel = true; } }
-                        break;
-                    }
-                }
-                Err(_) => break,
+        while let Ok(upd) = rx.recv_timeout(Duration::from_secs(5)) {
+            if upd.done {
+                if let Some(err) = &upd.error { if err.contains("Cancelled") { saw_cancel = true; } }
+                break;
             }
         }
     }

@@ -260,7 +260,7 @@ impl<'a> Dialog<'a> {
         let rect = crate::ui::modal::centered_percent(
             area,
             self.width_percent,
-            self.height as u16 * 100 / area.height.max(1),
+            self.height * 100 / area.height.max(1),
         );
         let theme = theme_current();
 

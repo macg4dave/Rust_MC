@@ -193,10 +193,8 @@ mod tests {
         #[cfg(test)]
         fn list_dir(path: &std::path::Path) -> Vec<String> {
             let mut out = Vec::new();
-            for entry in walkdir::WalkDir::new(path).min_depth(0) {
-                if let Ok(e) = entry {
-                    out.push(e.path().display().to_string());
-                }
+            for e in walkdir::WalkDir::new(path).min_depth(0).into_iter().flatten() {
+                out.push(e.path().display().to_string());
             }
             out
         }

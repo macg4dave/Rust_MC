@@ -52,13 +52,12 @@ pub fn handle_context_menu(app: &mut App, code: KeyCode) -> anyhow::Result<bool>
     // inspected.
     let mut pending_mode: Option<Mode> = None;
 
-    match &mut app.mode {
-        Mode::ContextMenu {
+    if let Mode::ContextMenu {
             title: _,
             options,
             selected,
             path: _,
-        } => {
+        } = &mut app.mode {
             // Navigation: move selection left/up or right/down.
             if keybinds::is_left(&code) || keybinds::is_up(&code) {
                 *selected = selected.saturating_sub(1);
@@ -131,8 +130,6 @@ pub fn handle_context_menu(app: &mut App, code: KeyCode) -> anyhow::Result<bool>
                     }
                 }
             }
-        }
-        _ => {}
     }
 
     if let Some(m) = pending_mode {

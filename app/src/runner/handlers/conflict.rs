@@ -50,8 +50,7 @@ fn send_decision_and_enter_progress(app: &mut App, decision: OperationDecision, 
 /// mutates `app.mode` and may send an `OperationDecision` to a background
 /// worker via `app.op_decision_tx`.
 pub fn handle_conflict(app: &mut App, code: KeyCode) -> anyhow::Result<bool> {
-    match &mut app.mode {
-        Mode::Conflict { path: _, selected, apply_all } => {
+    if let Mode::Conflict { path: _, selected, apply_all } = &mut app.mode {
             if keybinds::is_left(&code) {
                 *selected = (*selected).saturating_sub(1);
             } else if keybinds::is_right(&code) {
@@ -76,8 +75,6 @@ pub fn handle_conflict(app: &mut App, code: KeyCode) -> anyhow::Result<bool> {
             } else if keybinds::is_esc(&code) || keybinds::is_char(&code, 'c') || keybinds::is_char(&code, 'C') {
                 send_decision_and_enter_progress(app, OperationDecision::Cancel, CANCELLING_MSG, true);
             }
-        }
-        _ => {}
     }
 
     Ok(false)

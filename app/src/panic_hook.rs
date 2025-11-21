@@ -51,9 +51,7 @@ pub fn install_panic_hook() {
             let _ = std::fs::create_dir_all(&crash_dir);
 
             // Build a filename with timestamp and pid.
-            let ts = match chrono::Utc::now().format("%Y%m%dT%H%M%S").to_string() {
-                s => s,
-            };
+            let ts = chrono::Utc::now().format("%Y%m%dT%H%M%S").to_string();
             let pid = std::process::id();
             let filename = format!("panic-{}-{}.log", ts, pid);
             let path = crash_dir.join(filename);

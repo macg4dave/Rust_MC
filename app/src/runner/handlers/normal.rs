@@ -351,7 +351,13 @@ fn spawn_copy_worker(src_paths: Vec<PathBuf>, dst_dir: PathBuf, tx: mpsc::Sender
                 let _ = if target.is_dir() { std::fs::remove_dir_all(&target) } else { std::fs::remove_file(&target) };
             }
 
-            let res = if src.is_dir() { crate::fs_op::copy::copy_recursive(&src, &target) } else { if let Err(e) = crate::fs_op::helpers::ensure_parent_exists(&target) { Err(e) } else { crate::fs_op::helpers::atomic_copy_file(&src, &target).map(|_| ()) } };
+            let res = if src.is_dir() {
+                crate::fs_op::copy::copy_recursive(&src, &target)
+            } else if let Err(e) = crate::fs_op::helpers::ensure_parent_exists(&target) {
+                Err(e)
+            } else {
+                crate::fs_op::helpers::atomic_copy_file(&src, &target).map(|_| ())
+            };
             if let Err(e) = res { let _ = tx.send(ProgressUpdate { processed: i, total, message: Some(format!("Error: {}", e)), done: true, error: Some(format!("{}", e)), conflict: None }); return; }
             let _ = tx.send(ProgressUpdate { processed: i + 1, total, message: Some(format!("Copied {}", src.display())), done: false, error: None, conflict: None });
         }
@@ -390,7 +396,11 @@ fn spawn_move_worker(src_paths: Vec<PathBuf>, dst_dir: PathBuf, tx: mpsc::Sender
                 let _ = if target.is_dir() { std::fs::remove_dir_all(&target) } else { std::fs::remove_file(&target) };
             }
 
-            let res = if let Err(e) = crate::fs_op::helpers::ensure_parent_exists(&target) { Err(e) } else { crate::fs_op::helpers::atomic_rename_or_copy(&src, &target).map(|_| ()) };
+            let res = if let Err(e) = crate::fs_op::helpers::ensure_parent_exists(&target) {
+                Err(e)
+            } else {
+                crate::fs_op::helpers::atomic_rename_or_copy(&src, &target).map(|_| ())
+            };
             if let Err(e) = res { let _ = tx.send(ProgressUpdate { processed: i, total, message: Some(format!("Error: {}", e)), done: true, error: Some(format!("{}", e)), conflict: None }); return; }
             let _ = tx.send(ProgressUpdate { processed: i + 1, total, message: Some(format!("Moved {}", src.display())), done: false, error: None, conflict: None });
         }

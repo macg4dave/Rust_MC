@@ -56,18 +56,13 @@ fn conflict_overwrite() {
 
     let mut saw_conflict = false;
     if let Some(rx) = &app.op_progress_rx {
-        loop {
-            match rx.recv_timeout(Duration::from_secs(2)) {
-                Ok(upd) => {
-                    if upd.conflict.is_some() {
-                        saw_conflict = true;
-                        break;
-                    }
-                    if upd.done {
-                        break;
-                    }
-                }
-                Err(_) => break,
+        while let Ok(upd) = rx.recv_timeout(Duration::from_secs(2)) {
+            if upd.conflict.is_some() {
+                saw_conflict = true;
+                break;
+            }
+            if upd.done {
+                break;
             }
         }
     }
@@ -78,14 +73,9 @@ fn conflict_overwrite() {
     }
 
     if let Some(rx) = &app.op_progress_rx {
-        loop {
-            match rx.recv_timeout(Duration::from_secs(2)) {
-                Ok(upd) => {
-                    if upd.done {
-                        break;
-                    }
-                }
-                Err(_) => break,
+        while let Ok(upd) = rx.recv_timeout(Duration::from_secs(2)) {
+            if upd.done {
+                break;
             }
         }
     }
@@ -145,18 +135,13 @@ fn conflict_skip() {
 
     let mut saw_conflict = false;
     if let Some(rx) = &app.op_progress_rx {
-        loop {
-            match rx.recv_timeout(Duration::from_secs(2)) {
-                Ok(upd) => {
-                    if upd.conflict.is_some() {
-                        saw_conflict = true;
-                        break;
-                    }
-                    if upd.done {
-                        break;
-                    }
-                }
-                Err(_) => break,
+        while let Ok(upd) = rx.recv_timeout(Duration::from_secs(2)) {
+            if upd.conflict.is_some() {
+                saw_conflict = true;
+                break;
+            }
+            if upd.done {
+                break;
             }
         }
     }
@@ -167,14 +152,9 @@ fn conflict_skip() {
     }
 
     if let Some(rx) = &app.op_progress_rx {
-        loop {
-            match rx.recv_timeout(Duration::from_secs(2)) {
-                Ok(upd) => {
-                    if upd.done {
-                        break;
-                    }
-                }
-                Err(_) => break,
+        while let Ok(upd) = rx.recv_timeout(Duration::from_secs(2)) {
+            if upd.done {
+                break;
             }
         }
     }

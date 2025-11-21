@@ -24,7 +24,7 @@ fn settings_keyboard_interaction() {
 
     // Toggle mouse_enabled (default true -> false)
     handlers::handle_key(&mut app, KeyCode::Enter, 10).unwrap();
-    assert_eq!(app.settings.mouse_enabled, false);
+    assert!(!app.settings.mouse_enabled);
 
     // Move focus to timeout and increase it
     handlers::handle_key(&mut app, KeyCode::Down, 10).unwrap();
@@ -67,7 +67,7 @@ fn settings_mouse_click_toggle_and_save() {
         ),
     };
     let _ = handle_mouse(&mut app, me, area).unwrap();
-    assert_eq!(app.settings.mouse_enabled, false);
+    assert!(!app.settings.mouse_enabled);
 
     // Click Save (footer left half)
     let footer_row = rect.y + rect.height.saturating_sub(2);

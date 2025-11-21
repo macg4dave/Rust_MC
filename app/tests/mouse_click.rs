@@ -98,7 +98,7 @@ fn double_click_enters_directory_in_left_panel() {
         kind: MouseEventKind::Down(fileZoom::input::mouse::MouseButton::Left),
     };
     // first click selects
-    handlers::handle_mouse(&mut app, me.clone(), term).unwrap();
+    handlers::handle_mouse(&mut app, me, term).unwrap();
     // second click within timeout should trigger enter()
     handlers::handle_mouse(&mut app, me, term).unwrap();
 

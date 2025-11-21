@@ -15,10 +15,8 @@ use crossterm::terminal::{disable_raw_mode, enable_raw_mode, LeaveAlternateScree
 pub fn spawn_vim<P: AsRef<Path>>(path: P) -> io::Result<()> {
 	// Disable raw mode and leave the alternate screen so the spawned editor
 	// can take full control of the terminal with normal line buffering.
-	if let Err(e) = disable_raw_mode() {
-		// best-effort: return the error, nothing else we can do
-		return Err(e);
-	}
+	// Best-effort restore of terminal state; propagate errors directly.
+	disable_raw_mode()?;
 
 	let mut stdout = stdout();
 	// Leave alternate screen, disable mouse capture and show cursor

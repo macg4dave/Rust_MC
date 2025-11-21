@@ -19,8 +19,8 @@ fn app_with_options_applies_settings() -> Result<()> {
     let app = fileZoom::app::App::with_options(&opts)?;
 
     // Assert the settings were applied into the App instance.
-    assert_eq!(app.settings.mouse_enabled, false);
-    assert_eq!(app.settings.show_hidden, true);
+    assert!(!app.settings.mouse_enabled);
+    assert!(app.settings.show_hidden);
     assert_eq!(app.settings.theme, "dark");
 
     // After applying a theme we expect the UI theme state to be different

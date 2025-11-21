@@ -98,7 +98,7 @@ pub fn inspect_permissions<P: AsRef<Path>>(
             .max_depth(0)
             .into_iter()
             .next()
-            .map_or(false, |r| r.is_ok())
+            .is_some_and(|r| r.is_ok())
     } else {
         OpenOptions::new().read(true).open(&path).is_ok()
     };

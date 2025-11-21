@@ -66,14 +66,9 @@ fn multi_select_copy_background() {
 
     // Wait for background operation to finish by polling receiver
     if let Some(rx) = &app.op_progress_rx {
-        loop {
-            match rx.recv_timeout(Duration::from_secs(2)) {
-                Ok(upd) => {
-                    if upd.done {
-                        break;
-                    }
-                }
-                Err(_) => break,
+        while let Ok(upd) = rx.recv_timeout(Duration::from_secs(2)) {
+            if upd.done {
+                break;
             }
         }
     }
