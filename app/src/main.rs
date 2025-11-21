@@ -128,7 +128,7 @@ fn main() -> anyhow::Result<()> {
         // for the lifetime of the process when the feature is enabled.
         thread::spawn(move || {
             let fut = async move {
-                if let Err(e) = fileZoom::input::async_input::event_listener(|ev| {
+                if let Err(e) = fileZoom::input::async_input::event_listener(move |ev| {
                     let _ = async_tx.send(ev);
                 })
                 .await

@@ -113,7 +113,7 @@ impl TerminalGuard {
                 // best effort: report as Io error
                 return Err(e.into());
             }
-            let _ = self.terminal.show_cursor().map_err(TerminalError::from)?;
+            self.terminal.show_cursor().map_err(TerminalError::from)?;
             self.restored = true;
         }
         Ok(())

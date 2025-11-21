@@ -1,5 +1,3 @@
-#![cfg(feature = "fs-watch")]
-
 use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender};

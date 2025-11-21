@@ -193,7 +193,7 @@ mod tests {
     #[cfg(feature = "test-helpers")]
     #[test]
     fn move_falls_back_to_copy_and_remove_when_rename_forced_to_fail() {
-        use crate::fs_op::helpers::tests as helpers_tests;
+        use crate::fs_op::test_helpers as helpers_tests;
 
         let _lock = helpers_tests::acquire_test_lock();
         // Force rename to fail so atomic_rename_or_copy performs copy+remove.
@@ -233,7 +233,7 @@ mod tests {
     #[cfg(feature = "test-helpers")]
     #[test]
     fn rename_falls_back_to_copy_when_rename_forced_to_fail() {
-        use crate::fs_op::helpers::tests as helpers_tests;
+        use crate::fs_op::test_helpers as helpers_tests;
 
         let _lock = helpers_tests::acquire_test_lock();
         helpers_tests::set_force_rename_fail_in_rename_or_copy(true);

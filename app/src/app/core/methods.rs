@@ -27,7 +27,6 @@ impl App {
     // `with_cwd` moved to `app::core::init` to be reusable across core
     // submodules and tests. Use `super::init::with_cwd` when constructing
     // an App from a known working directory.
-
     /// Create an App with explicit startup options (for example a start
     /// directory or initial mouse setting). This mirrors `new` but uses
     /// `StartOptions` when provided so callers can control initial state

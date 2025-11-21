@@ -36,7 +36,7 @@ use std::time::Duration;
 #[cfg(feature = "async-input")]
 use crossterm::event::Event;
 #[cfg(feature = "async-input")]
-use std::sync::{mpsc::{self, Receiver as MpscReceiver}, OnceLock};
+use std::sync::{mpsc::{self, Receiver as MpscReceiver}, OnceLock, Mutex};
 
 use thiserror::Error;
 
@@ -46,10 +46,9 @@ use thiserror::Error;
 // runner. This uses a single global receiver which is set once at
 // startup by the main thread.
 #[cfg(feature = "async-input")]
-static ASYNC_EVENT_RX: OnceLock<MpscReceiver<Event>> = OnceLock::new();
+static ASYNC_EVENT_RX: OnceLock<Mutex<MpscReceiver<Event>>> = OnceLock::new();
 
-#[cfg(feature = "async-input")]
-type AsyncReceiver = MpscReceiver<Event>;
+// Alias `AsyncReceiver` removed: prefer using the concrete `MpscReceiver<Event>` behind the `Mutex`.
 
 /// Install a receiver that will be polled by `read_event()` before
 /// falling back to `crossterm::event::read()`.
@@ -66,7 +65,7 @@ pub fn install_async_event_receiver(rx: MpscReceiver<Event>) {
     // We intentionally ignore the Result so callers may call this from
     // different startup paths without panicking if another initializer
     // already set the receiver. The first successful install wins.
-    let _ = ASYNC_EVENT_RX.set(rx);
+    let _ = ASYNC_EVENT_RX.set(Mutex::new(rx));
 }
 
 /// Map a `crossterm::event::Event` into the crate-local `InputEvent`.
@@ -129,9 +128,9 @@ pub enum InputError {
 pub fn read_event_typed() -> Result<InputEvent, InputError> {
     #[cfg(feature = "async-input")]
     {
-        if let Some(rx) = ASYNC_EVENT_RX.get() {
+        if let Some(rx_mutex) = ASYNC_EVENT_RX.get() {
             use mpsc::TryRecvError;
-            match rx.try_recv() {
+            match rx_mutex.lock().unwrap().try_recv() {
                 Ok(ev) => return Ok(map_crossterm_event(ev)),
                 Err(TryRecvError::Disconnected) => {
                     // Preserve historical behaviour: fall through to the
