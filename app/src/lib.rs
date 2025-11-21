@@ -6,7 +6,9 @@ pub mod input;
 pub mod parallel;
 #[path = "runner/mod.rs"]
 pub mod runner;
-#[path = "ui/mod.rs"]
+// ui module moved to a new `UI` folder (uppercase). Keep module name `ui` here
+// so existing callers continue to work.
+#[path = "UI/mod.rs"]
 pub mod ui;
 pub mod panic_hook;
 
