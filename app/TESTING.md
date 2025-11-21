@@ -76,8 +76,74 @@ Cleanup
 docker volume rm filezoom_fixtures_<stamp>
 ```
 
+## Terminal safety during tests
+
+- Many tests and helper runs spawn the TUI `fileZoom` binary. When running
+  terminal-based UI code in tests, it's important to ensure the terminal is
+  always restored (leave alternate screen, disable raw mode, disable mouse
+  capture) even on panic or early exit. Tests that fail to restore the
+  terminal can leave the developer shell in an unusable state.
+- The codebase now provides a `TerminalGuard` RAII helper that ensures
+  terminal restoration on drop; tests or helpers that initialize the
+  terminal should prefer `init_terminal()` which returns this guard. Where
+  explicit restoration is desired, call `restore_terminal(guard)` to report
+  errors instead of relying solely on Drop.
+
+
 Adjusting generator behavior
 
 If you want to change fixture defaults (counts, multilingual variance, depth), I
 can modify `app/src/test_helpers/make_fakefs/fixtures.rs` to use different defaults
 or add CLI flags to the `make_fakefs` binary to parameterize generation.
+
+## Running the `start_options` test
+
+This repository includes a focused test that verifies CLI-derived startup
+options are applied to the `App` at initialization (`App::with_options`). To
+run just that test from the `app` directory use either of these commands:
+
+```bash
+cd app
+# Run the single test by test-name/file (prints detailed output)
+cargo test -p fileZoom start_options -- --nocapture
+
+# Or run the specific unit/integration test function by name:
+# cargo test -p fileZoom app_with_options_applies_settings -- --nocapture
+```
+
+Running the single test is faster than the full suite and is useful when
+iterating on CLI/startup-related code. If you prefer to run the full test
+suite (including this test) use `cargo test -p fileZoom -- --nocapture`.
+
+
+
+## Test Helpers
+
+Use the shared test helpers to isolate the user environment (HOME/XDG) when
+running tests that touch config or cache directories. The crate exposes a
+small set of helpers available during test builds:
+
+- `fileZoom::test_helpers::set_up_temp_home()` — creates a `tempfile::TempDir`,
+  sets `HOME`, `XDG_CONFIG_HOME` and `XDG_DATA_HOME` to that temp directory,
+  and returns the `TempDir`. Keep the returned value alive for the duration of
+  the test to preserve the temporary directories (the directory is removed on
+  drop).
+- `fileZoom::test_helpers::set_up_temp_xdg_config()` — creates a `TempDir` and
+  sets only `XDG_CONFIG_HOME` to it.
+
+Example usage:
+
+```rust
+#[test]
+fn my_test_uses_isolated_home() {
+    // Keep the TempDir value so it isn't deleted until the end of the test.
+    let _td = fileZoom::test_helpers::set_up_temp_home();
+
+    // Now run code that reads/writes config or cache locations; they will
+    // be redirected to the temporary directory above.
+    // ... test logic ...
+}
+```
+
+These helpers are compiled for test builds and re-exported by the crate root
+so tests can call them as shown without enabling extra features.

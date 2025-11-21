@@ -1,9 +1,5 @@
-//! Compatibility shim for path helpers.
-//!
-//! DEPRECATED: Prefer `fileZoom::fs_op::path` for new code. This module is a
-//! backwards-compatibility shim that re-exports the primary implementation.
-//!
-//! Publicly re-exported items:
-//! - `resolve_path` — resolve user-supplied paths for panel cwd changes.
-//! - `PathError` — error type returned from `resolve_path`.
-pub use crate::fs_op::path::{resolve_path, PathError};
+// Deprecated compatibility shim. See `app::path` deprecation attribute in
+// `app/src/app.rs` — this file keeps the old import path working by
+// re-exporting the canonical implementation under `fs_op::path`.
+
+pub use crate::fs_op::path::*;

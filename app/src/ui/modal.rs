@@ -1,5 +1,5 @@
 use ratatui::layout::Rect;
-use ratatui::widgets::{Block, Borders, Paragraph, Clear};
+use ratatui::widgets::{Block, Borders, Clear, Paragraph};
 use ratatui::Frame;
 
 use crate::ui::colors::current as theme_current;
@@ -41,11 +41,21 @@ pub fn centered_percent(area: Rect, percent_x: u16, percent_y: u16) -> Rect {
 }
 
 /// Draw a generic popup using percentage-based sizing and clearing the background.
-pub fn draw_popup(f: &mut Frame, area: Rect, percent_x: u16, percent_y: u16, title: &str, content: &str) {
+pub fn draw_popup(
+    f: &mut Frame,
+    area: Rect,
+    percent_x: u16,
+    percent_y: u16,
+    title: &str,
+    content: &str,
+) {
     let rect = centered_percent(area, percent_x, percent_y);
     let theme = theme_current();
     f.render_widget(Clear, rect);
-    let block = Block::default().borders(Borders::ALL).title(title).style(theme.preview_block_style);
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(title)
+        .style(theme.preview_block_style);
     let p = Paragraph::new(content.to_string()).block(block);
     f.render_widget(p, rect);
 }

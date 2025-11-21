@@ -1,7 +1,7 @@
 use chrono::Local;
 use fileZoom::app::Entry;
-use fileZoom::ui::panels::format_entry_line;
 use fileZoom::ui::panels::compute_scrollbar_thumb;
+use fileZoom::ui::panels::format_entry_line;
 
 #[test]
 fn format_entry_line_for_file_and_dir() {
@@ -29,7 +29,7 @@ fn compute_scrollbar_thumb_smoke() {
     // Simple cases
     assert_eq!(compute_scrollbar_thumb(10, 0, 0, 0), (0, 0));
     assert_eq!(compute_scrollbar_thumb(10, 5, 5, 0), (0, 0)); // visible >= total
-    // Typical case: height=10, total=100, visible=10 -> thumb size = 1, start = (offset*10)/100
+                                                              // Typical case: height=10, total=100, visible=10 -> thumb size = 1, start = (offset*10)/100
     let (start, size) = compute_scrollbar_thumb(10, 100, 10, 0);
     assert_eq!(size, 1);
     assert_eq!(start, 0);

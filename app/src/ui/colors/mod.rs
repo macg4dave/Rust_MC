@@ -1,8 +1,6 @@
-use std::sync::{OnceLock, RwLock};
 use ratatui::style::{Color, Modifier, Style};
+use std::sync::{OnceLock, RwLock};
 
-/// Theme holds the styles used across the UI. Cloneable so callers can
-/// take a snapshot for rendering without holding locks.
 #[derive(Clone, Debug)]
 pub struct Theme {
     pub border_active: Style,
@@ -23,7 +21,6 @@ pub struct Theme {
 }
 
 impl Theme {
-    /// Dark theme variant.
     pub fn dark() -> Self {
         Theme {
             border_active: Style::default().fg(Color::Yellow),
@@ -53,7 +50,6 @@ impl Theme {
 }
 
 impl Default for Theme {
-    /// Default (light-friendly) theme.
     fn default() -> Self {
         Theme {
             border_active: Style::default().fg(Color::Yellow),
@@ -102,7 +98,6 @@ fn init_state() -> RwLock<ThemeState> {
     })
 }
 
-/// Return a clone of the current theme.
 pub fn current() -> Theme {
     THEME_STATE
         .get_or_init(init_state)
@@ -112,7 +107,6 @@ pub fn current() -> Theme {
         .clone()
 }
 
-/// Set the active theme by name. Supported names: "default", "dark".
 pub fn set_theme(name: &str) {
     let mut guard = THEME_STATE.get_or_init(init_state).write().unwrap();
     match name {
@@ -127,7 +121,6 @@ pub fn set_theme(name: &str) {
     }
 }
 
-/// Toggle between default and dark themes.
 pub fn toggle() {
     let mut guard = THEME_STATE.get_or_init(init_state).write().unwrap();
     match guard.name {
@@ -142,14 +135,8 @@ pub fn toggle() {
     }
 }
 
-/// Return a small palette of named colors and a sample `Style` suitable for
-/// rendering a preview (background set to the color with a contrasting
-/// foreground). This is a lightweight helper inspired by the ratatui
-/// color-explorer example and intended for use in UI widgets that want to
-/// show color swatches.
 pub fn color_samples() -> Vec<(String, Style)> {
-    // A compact list of commonly useful colors.
-    let named: &[( &str, Color )] = &[
+    let named: &[(&str, Color)] = &[
         ("Black", Color::Black),
         ("DarkGray", Color::DarkGray),
         ("Red", Color::Red),
@@ -174,22 +161,13 @@ pub fn color_samples() -> Vec<(String, Style)> {
         .collect()
 }
 
-/// Return a small set of styles demonstrating common `Modifier`s.
-/// Useful for widgets that want to preview how modifiers look (bold,
-/// italic, underlined, reversed, etc.). Each entry is (label, style).
 pub fn modifier_samples() -> Vec<(String, Style)> {
     let base = Style::default().fg(Color::White).bg(Color::Black);
 
     let samples = vec![
         ("Normal".to_string(), base),
-        (
-            "Bold".to_string(),
-            base.add_modifier(Modifier::BOLD),
-        ),
-        (
-            "Italic".to_string(),
-            base.add_modifier(Modifier::ITALIC),
-        ),
+        ("Bold".to_string(), base.add_modifier(Modifier::BOLD)),
+        ("Italic".to_string(), base.add_modifier(Modifier::ITALIC)),
         (
             "Underlined".to_string(),
             base.add_modifier(Modifier::UNDERLINED),
@@ -202,18 +180,12 @@ pub fn modifier_samples() -> Vec<(String, Style)> {
             "CrossedOut".to_string(),
             base.add_modifier(Modifier::CROSSED_OUT),
         ),
-        (
-            "Dim".to_string(),
-            base.add_modifier(Modifier::DIM),
-        ),
+        ("Dim".to_string(), base.add_modifier(Modifier::DIM)),
     ];
 
     samples
 }
 
-/// Apply a list of modifier names (case-insensitive) to a `Style`.
-/// Unknown names are ignored. This helper is convenient when parsing
-/// configuration or wiring UI controls that toggle modifiers by name.
 pub fn apply_modifiers(mut style: Style, mods: &[&str]) -> Style {
     for m in mods {
         match m.to_ascii_lowercase().as_str() {
@@ -239,6 +211,18 @@ pub fn apply_modifiers(mut style: Style, mods: &[&str]) -> Style {
     style
 }
 
+fn sample_style_for_color(bg: Color) -> Style {
+    use Color::*;
+
+    let fg = match bg {
+        Black | DarkGray | Red | Blue | Magenta => Color::White,
+        LightRed | LightGreen | LightYellow | LightBlue | LightMagenta | LightCyan | White
+        | Gray | Green | Yellow | Cyan => Color::Black,
+        _ => Color::White,
+    };
+
+    Style::default().bg(bg).fg(fg)
+}
 
 #[cfg(test)]
 mod tests {
@@ -254,37 +238,9 @@ mod tests {
     fn apply_modifiers_sets_expected() {
         let base = Style::default();
         let got = apply_modifiers(base, &["bold", "italic"]);
-        let expected = base.add_modifier(Modifier::BOLD).add_modifier(Modifier::ITALIC);
+        let expected = base
+            .add_modifier(Modifier::BOLD)
+            .add_modifier(Modifier::ITALIC);
         assert_eq!(got, expected);
     }
 }
-
-/// Pick a contrasting foreground color for a given background color and
-/// return a `Style` that sets the background to `bg` and the foreground to
-/// that contrasting color. This uses a small heuristic over the known named
-/// colors so sample text remains readable.
-fn sample_style_for_color(bg: Color) -> Style {
-    use Color::*;
-
-    let fg = match bg {
-        // Treat these as dark backgrounds -> use white text
-        Black | DarkGray | Red | Blue | Magenta => Color::White,
-        // Treat these as light backgrounds -> use black text
-        LightRed
-        | LightGreen
-        | LightYellow
-        | LightBlue
-        | LightMagenta
-        | LightCyan
-        | White
-        | Gray
-        | Green
-        | Yellow
-        | Cyan => Color::Black,
-        // Default fallback: white text
-        _ => Color::White,
-    };
-
-    Style::default().bg(bg).fg(fg)
-}
-

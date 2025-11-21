@@ -106,7 +106,13 @@ pub enum Mode {
         content: String,
         buttons: Vec<String>,
         selected: usize,
+        /// Optional mapping from button index to an application `Action`.
+        /// When present, accepting the dialog (Enter) will attempt to
+        /// execute the mapped action via `runner::commands::perform_action`.
+        actions: Option<Vec<Action>>,
     },
+    /// Settings dialog allowing toggling mouse and editing numeric timeout.
+    Settings { selected: usize },
     Progress {
         title: String,
         processed: usize,
@@ -118,6 +124,14 @@ pub enum Mode {
         path: std::path::PathBuf,
         selected: usize,
         apply_all: bool,
+    },
+    /// Context menu shown for a selected entry. `options` are the action
+    /// labels (e.g. View, Edit, Permissions). `path` is the target entry.
+    ContextMenu {
+        title: String,
+        options: Vec<String>,
+        selected: usize,
+        path: std::path::PathBuf,
     },
     Input {
         prompt: String,

@@ -1,8 +1,8 @@
+use fileZoom::app::settings::read_settings::load_settings;
+use fileZoom::app::settings::write_settings::save_settings;
+use fileZoom::app::settings::write_settings::Settings;
 use std::env;
 use tempfile::tempdir;
-use fileZoom::app::settings::write_settings::save_settings;
-use fileZoom::app::settings::read_settings::load_settings;
-use fileZoom::app::settings::write_settings::Settings;
 
 #[test]
 fn save_and_load_settings_roundtrip() {
@@ -15,6 +15,10 @@ fn save_and_load_settings_roundtrip() {
         show_hidden: true,
         left_panel_width: 30,
         right_panel_width: 50,
+        context_actions: Settings::default().context_actions.clone(),
+        mouse_enabled: true,
+        mouse_double_click_ms: 500,
+        prefer_integrated_vim: false,
     };
 
     save_settings(&s).expect("save should succeed");

@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::env;
 use std::fs;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 /// User-editable settings persisted to a TOML file.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -12,6 +12,17 @@ pub struct Settings {
     pub show_hidden: bool,
     pub left_panel_width: u16,
     pub right_panel_width: u16,
+    /// Ordered list of context actions shown in the context menu.
+    pub context_actions: Vec<String>,
+    /// Whether mouse support is enabled.
+    pub mouse_enabled: bool,
+    /// Double-click timeout in milliseconds.
+    pub mouse_double_click_ms: u64,
+    /// When true, prefer the integrated `vim` launcher which properly
+    /// suspends/restores the TUI. When false, fall back to spawning the
+    /// user's `EDITOR` command; integrated launcher is still used when
+    /// the editor is `vim` or `vi`.
+    pub prefer_integrated_vim: bool,
 }
 
 impl Default for Settings {
@@ -21,6 +32,15 @@ impl Default for Settings {
             show_hidden: false,
             left_panel_width: 40,
             right_panel_width: 40,
+            context_actions: vec![
+                "View".to_string(),
+                "Edit".to_string(),
+                "Permissions".to_string(),
+                "Cancel".to_string(),
+            ],
+            mouse_enabled: true,
+            mouse_double_click_ms: 500,
+            prefer_integrated_vim: false,
         }
     }
 }

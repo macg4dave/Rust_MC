@@ -4,6 +4,7 @@ use std::io::Read;
 use std::io::Write;
 use std::path::Path;
 use std::process::Command;
+use walkdir::WalkDir;
 
 /// Copy a directory recursively from `src` to `dst`.
 pub fn copy_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
@@ -15,16 +16,21 @@ pub fn copy_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
     }
     fs::create_dir_all(dst)?;
 
-    for entry in fs::read_dir(src)? {
-        let entry = entry?;
-        let file_type = entry.file_type()?;
+    for entry in WalkDir::new(src).min_depth(1).follow_links(false) {
+        let entry = entry.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
         let from = entry.path();
-        let to = dst.join(entry.file_name());
-        if file_type.is_dir() {
-            copy_recursive(&from, &to)?;
-        } else if file_type.is_file() {
+        let rel = from.strip_prefix(src).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        let to = dst.join(rel);
+        let ft = entry.file_type();
+
+        if ft.is_dir() {
+            fs::create_dir_all(&to)?;
+        } else if ft.is_file() {
+            if let Some(parent) = to.parent() {
+                fs::create_dir_all(parent)?;
+            }
             fs::copy(&from, &to)?;
-        } else if file_type.is_symlink() {
+        } else if ft.is_symlink() {
             if let Ok(target) = fs::read_link(&from) {
                 #[cfg(unix)]
                 {

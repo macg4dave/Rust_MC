@@ -31,13 +31,19 @@ instructions give AI agents precise, actionable guidance.
 
 📁 Key Paths
 
--   app/ — main crate.
--   app/src/lib.rs, app/src/app.rs — central logic (App, Action, Mode,
-    Side).
--   app/src/ui/ — UI components (menu, modal, panels).
--   app/tests/ — integration tests.
--   .github/instructions/ — path-specific prompts for Copilot.
--   app/test_helper/ — utilities for test setup.
+Important paths:
+- Crate root: `app/` (fileZoom binary crate).
+- Core entrypoints: `app/src/lib.rs`, `app/src/app.rs`, `app/src/main.rs`.
+- App internals: `app/src/app/` (contains `core/`, `types.rs`, `path.rs`, `settings/`).
+- UI code: `app/src/ui/` (menu, modal, panels, dialogs, util).
+- Runner/handlers: `app/src/runner/` (commands, event_loop_main, handlers/).
+- Filesystem ops: `app/src/fs_op/` (copy, mv, stat, permissions, path helpers).
+- Input handling: `app/src/input/` (keyboard, mouse).
+- Virtual FS and network backends: `app/src/vfs/`.
+- Errors and localization: `app/src/errors/`.
+- Building helpers and scripts: `app/building/`, `app/building/make_fakefs/`, `app/scripts/`.
+- Test helpers and fixtures: `app/test_helper/`, `app/src/test_helpers/`, and integration tests in `app/tests/` and top-level `tests/`.
+- Docker and packaging: `app/docker/`.
 
 ------------------------------------------------------------------------
 
@@ -67,7 +73,7 @@ Run everything manually:
 -   Keep functions focused and modular (single responsibility).
 -   Avoid monolithic files; split logically when needed.
 -   Maintain clarity over cleverness.
-
+-   All .rs files must be less than 800 chars long.
 ------------------------------------------------------------------------
 
 📚 Tests

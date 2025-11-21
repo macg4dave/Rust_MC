@@ -29,6 +29,12 @@ pub struct ProgressUpdate {
 
 impl fmt::Display for ProgressUpdate {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}/{} ({})", self.processed, self.total, self.message.as_deref().unwrap_or(""))
+        write!(
+            f,
+            "{}/{} ({})",
+            self.processed,
+            self.total,
+            self.message.as_deref().unwrap_or("")
+        )
     }
 }

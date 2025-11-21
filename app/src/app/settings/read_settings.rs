@@ -1,6 +1,6 @@
+use super::write_settings::{config_file_path, Settings};
 use anyhow::{Context, Result};
 use std::fs;
-use super::write_settings::{config_file_path, Settings};
 
 /// Load settings from disk. If file doesn't exist, returns Default::default().
 pub fn load_settings() -> Result<Settings> {

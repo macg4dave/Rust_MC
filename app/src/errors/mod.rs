@@ -30,7 +30,7 @@ fn parse_templates_from_str(raw: &str) -> HashMap<String, String> {
         Err(e) => {
             // Log parse errors for visibility; the application will fall back to
             // built-in defaults when templates cannot be loaded.
-            log::warn!("Failed to parse errors_output.toml: {}", e);
+            tracing::warn!(error = ?e, "Failed to parse errors_output.toml");
         }
     }
 
@@ -83,7 +83,7 @@ fn format_template(tmpl: &str, pairs: &[(&str, &str)]) -> String {
     handlebars()
         .render_template(tmpl, &ctx)
         .unwrap_or_else(|err| {
-            log::warn!("template render failed: {} — falling back", err);
+            tracing::warn!(error = ?err, "template render failed — falling back");
             tmpl.to_string()
         })
 }

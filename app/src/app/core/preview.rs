@@ -19,7 +19,7 @@ impl App {
                 panel.set_preview(s);
             } else {
                 // Read up to MAX_PREVIEW_BYTES from the file for preview.
-                match build_file_preview(&e.path, App::MAX_PREVIEW_BYTES) {
+                match build_file_preview(&e.path, super::MAX_PREVIEW_BYTES) {
                     Ok(s) => panel.set_preview(s),
                     Err(ref reason) if reason == "binary" => panel.set_preview(format!(
                         "Binary file: {} (preview not available)",

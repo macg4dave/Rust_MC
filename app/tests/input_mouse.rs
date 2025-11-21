@@ -36,3 +36,17 @@ fn convert_scrolls() {
     assert!(matches!(up_conv.kind, MouseEventKind::ScrollUp));
     assert!(matches!(down_conv.kind, MouseEventKind::ScrollDown));
 }
+
+#[test]
+fn convert_drag_left() {
+    let ct = CtME {
+        kind: CtKind::Drag(CtBtn::Left),
+        column: 3,
+        row: 7,
+        modifiers: KeyModifiers::NONE,
+    };
+    let me: MouseEvent = ct.into();
+    assert_eq!(me.column, 3);
+    assert_eq!(me.row, 7);
+    assert!(matches!(me.kind, MouseEventKind::Drag(MouseButton::Left)));
+}

@@ -1,5 +1,5 @@
-use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::buffer::Buffer;
+use ratatui::layout::{Constraint, Direction, Layout, Rect};
 
 /// Compute column rectangles for a typical file list layout: name, size, modified, perms.
 ///
@@ -10,7 +10,13 @@ use ratatui::buffer::Buffer;
 /// - `area` - the area that should be split into columns
 /// - `name_fill` - a `Ratio` pair indicating how to allocate remaining space (name column)
 /// - `size_len`, `modified_len`, `perms_len` - fixed lengths for these columns in characters
-pub fn columns_for_file_list(area: Rect, name_fill: (u32, u32), size_len: u16, modified_len: u16, perms_len: u16) -> Vec<Rect> {
+pub fn columns_for_file_list(
+    area: Rect,
+    name_fill: (u32, u32),
+    size_len: u16,
+    modified_len: u16,
+    perms_len: u16,
+) -> Vec<Rect> {
     let (rnum, rden) = name_fill;
     // Use `Ratio` for the name column so it scales with available space. The other columns are `Length`.
     let constraints = [
@@ -20,7 +26,11 @@ pub fn columns_for_file_list(area: Rect, name_fill: (u32, u32), size_len: u16, m
         Constraint::Length(perms_len),
     ];
 
-    Layout::default().direction(Direction::Horizontal).constraints(constraints.as_ref()).split(area).to_vec()
+    Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints(constraints.as_ref())
+        .split(area)
+        .to_vec()
 }
 
 /// Render content into a temporary `Buffer` to enable splicing for scrollable content.
@@ -31,7 +41,13 @@ pub fn columns_for_file_list(area: Rect, name_fill: (u32, u32), size_len: u16, m
 /// - `render_fn` must draw into the provided Frame-like object which is not available here, so we simply
 /// render into Buffer using common ratatui widgets via the provided code path (this helper builds the Buffer
 /// and expects a function that performs drawing into a `Buffer`).
-pub fn splice_buffer_with_offset(demo_buf: &Buffer, render_area: Rect, target_area: Rect, scroll_offset: u16, out_buf: &mut Buffer) {
+pub fn splice_buffer_with_offset(
+    demo_buf: &Buffer,
+    render_area: Rect,
+    target_area: Rect,
+    scroll_offset: u16,
+    out_buf: &mut Buffer,
+) {
     // Calculate whether we need to scroll vertically and copy visible rows from demo_buf into out_buf
     let rows_to_skip = (scroll_offset as usize) * (render_area.width as usize);
     let visible_cells = demo_buf

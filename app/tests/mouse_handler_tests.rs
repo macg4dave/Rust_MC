@@ -1,7 +1,7 @@
-use fileZoom::app::{App, Panel, Side};
+use fileZoom::app::{App, Side};
+use fileZoom::input::mouse::{MouseEvent, MouseEventKind};
 use fileZoom::runner::handlers;
 use fileZoom::Entry;
-use fileZoom::input::mouse::{MouseEvent, MouseEventKind};
 use ratatui::layout::Rect;
 use std::path::PathBuf;
 
@@ -17,7 +17,11 @@ fn scroll_down_over_left_panel_moves_selection_down() {
     // terminal area 80x24 -> main panels start at row 2
     let term = Rect::new(0, 0, 80, 24);
     // click/scroll within left panel area (column 2, row 3)
-    let me = MouseEvent { column: 2, row: 3, kind: MouseEventKind::ScrollDown };
+    let me = MouseEvent {
+        column: 2,
+        row: 3,
+        kind: MouseEventKind::ScrollDown,
+    };
     handlers::handle_mouse(&mut app, me, term).unwrap();
     assert_eq!(app.active, Side::Left);
     assert_eq!(app.left.selected, 1);
@@ -32,7 +36,11 @@ fn scroll_up_over_left_panel_moves_selection_up() {
     app.left.selected = 2;
 
     let term = Rect::new(0, 0, 80, 24);
-    let me = MouseEvent { column: 2, row: 3, kind: MouseEventKind::ScrollUp };
+    let me = MouseEvent {
+        column: 2,
+        row: 3,
+        kind: MouseEventKind::ScrollUp,
+    };
     handlers::handle_mouse(&mut app, me, term).unwrap();
     assert_eq!(app.active, Side::Left);
     assert_eq!(app.left.selected, 1);
@@ -48,7 +56,11 @@ fn scroll_down_over_right_panel_moves_selection_down() {
 
     let term = Rect::new(0, 0, 80, 24);
     // choose a column in the right half (e.g., 60)
-    let me = MouseEvent { column: 60, row: 3, kind: MouseEventKind::ScrollDown };
+    let me = MouseEvent {
+        column: 60,
+        row: 3,
+        kind: MouseEventKind::ScrollDown,
+    };
     handlers::handle_mouse(&mut app, me, term).unwrap();
     assert_eq!(app.active, Side::Right);
     assert_eq!(app.right.selected, 1);

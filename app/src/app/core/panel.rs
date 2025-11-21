@@ -46,7 +46,11 @@ impl Panel {
     pub fn toggle_selection(&mut self) {
         if let Some(idx) = {
             let header_count = 1usize;
-            let parent_count = if self.cwd.parent().is_some() { 1usize } else { 0usize };
+            let parent_count = if self.cwd.parent().is_some() {
+                1usize
+            } else {
+                0usize
+            };
             if self.selected >= header_count + parent_count {
                 Some(self.selected - header_count - parent_count)
             } else {

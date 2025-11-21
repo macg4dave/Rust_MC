@@ -1,7 +1,7 @@
 use assert_fs::prelude::*;
 use fileZoom::app::{App, Panel, Side, SortKey};
-use fileZoom::runner::progress::OperationDecision;
 use fileZoom::input::KeyCode;
+use fileZoom::runner::progress::OperationDecision;
 use std::time::Duration;
 
 #[test]
@@ -27,15 +27,27 @@ fn conflict_overwrite() {
         sort_desc: false,
         menu_index: 0,
         menu_focused: false,
+        preview_visible: false,
+        command_line: None,
+        settings: fileZoom::app::settings::write_settings::Settings::default(),
         op_progress_rx: None,
         op_cancel_flag: None,
         op_decision_tx: None,
+        last_mouse_click_time: None,
+        last_mouse_click_pos: None,
+        drag_active: false,
+        drag_start: None,
+        drag_current: None,
+        drag_button: None,
     };
     app.refresh().unwrap();
 
     let mut idx = None;
     for (i, e) in app.left.entries.iter().enumerate() {
-        if e.name == "a.txt" { idx = Some(i); break; }
+        if e.name == "a.txt" {
+            idx = Some(i);
+            break;
+        }
     }
     assert!(idx.is_some());
     app.left.selections.insert(idx.unwrap());
@@ -46,18 +58,35 @@ fn conflict_overwrite() {
     if let Some(rx) = &app.op_progress_rx {
         loop {
             match rx.recv_timeout(Duration::from_secs(2)) {
-                Ok(upd) => { if upd.conflict.is_some() { saw_conflict = true; break; } if upd.done { break; } }
+                Ok(upd) => {
+                    if upd.conflict.is_some() {
+                        saw_conflict = true;
+                        break;
+                    }
+                    if upd.done {
+                        break;
+                    }
+                }
                 Err(_) => break,
             }
         }
     }
     assert!(saw_conflict, "expected worker to report a conflict");
 
-    if let Some(tx) = &app.op_decision_tx { let _ = tx.send(OperationDecision::Overwrite); }
+    if let Some(tx) = &app.op_decision_tx {
+        let _ = tx.send(OperationDecision::Overwrite);
+    }
 
     if let Some(rx) = &app.op_progress_rx {
         loop {
-            match rx.recv_timeout(Duration::from_secs(2)) { Ok(upd) => { if upd.done { break; } } Err(_) => break, }
+            match rx.recv_timeout(Duration::from_secs(2)) {
+                Ok(upd) => {
+                    if upd.done {
+                        break;
+                    }
+                }
+                Err(_) => break,
+            }
         }
     }
     right.child("a.txt").assert("from-left");
@@ -87,15 +116,27 @@ fn conflict_skip() {
         sort_desc: false,
         menu_index: 0,
         menu_focused: false,
+        preview_visible: false,
+        command_line: None,
+        settings: fileZoom::app::settings::write_settings::Settings::default(),
         op_progress_rx: None,
         op_cancel_flag: None,
         op_decision_tx: None,
+        last_mouse_click_time: None,
+        last_mouse_click_pos: None,
+        drag_active: false,
+        drag_start: None,
+        drag_current: None,
+        drag_button: None,
     };
     app.refresh().unwrap();
 
     let mut idx = None;
     for (i, e) in app.left.entries.iter().enumerate() {
-        if e.name == "a.txt" { idx = Some(i); break; }
+        if e.name == "a.txt" {
+            idx = Some(i);
+            break;
+        }
     }
     assert!(idx.is_some());
     app.left.selections.insert(idx.unwrap());
@@ -106,18 +147,35 @@ fn conflict_skip() {
     if let Some(rx) = &app.op_progress_rx {
         loop {
             match rx.recv_timeout(Duration::from_secs(2)) {
-                Ok(upd) => { if upd.conflict.is_some() { saw_conflict = true; break; } if upd.done { break; } }
+                Ok(upd) => {
+                    if upd.conflict.is_some() {
+                        saw_conflict = true;
+                        break;
+                    }
+                    if upd.done {
+                        break;
+                    }
+                }
                 Err(_) => break,
             }
         }
     }
     assert!(saw_conflict, "expected worker to report a conflict");
 
-    if let Some(tx) = &app.op_decision_tx { let _ = tx.send(OperationDecision::Skip); }
+    if let Some(tx) = &app.op_decision_tx {
+        let _ = tx.send(OperationDecision::Skip);
+    }
 
     if let Some(rx) = &app.op_progress_rx {
         loop {
-            match rx.recv_timeout(Duration::from_secs(2)) { Ok(upd) => { if upd.done { break; } } Err(_) => break, }
+            match rx.recv_timeout(Duration::from_secs(2)) {
+                Ok(upd) => {
+                    if upd.done {
+                        break;
+                    }
+                }
+                Err(_) => break,
+            }
         }
     }
 

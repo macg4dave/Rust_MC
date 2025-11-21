@@ -3,10 +3,6 @@ name: fileZoom_api
 description: "Prompt template for public API / library-level changes in fileZoom (lib exports, `fileZoom::` surface)."
 ---
 
-Scope
------
--- Typical files: `app/src/lib.rs`, `app/src/app.rs`, public helpers in `app/src/*` (crate name: `fileZoom`).
-
 Hard constraints
 ----------------
 - Preserve backward-compatible public APIs unless a breaking change is explicitly requested.

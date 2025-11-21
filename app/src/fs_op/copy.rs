@@ -1,6 +1,7 @@
 use std::fs;
 use std::io;
 use std::path::Path;
+use walkdir::WalkDir;
 
 /// Recursively copy `src` directory into `dst`.
 ///
@@ -13,26 +14,27 @@ pub(crate) fn copy_recursive(src: &Path, dst: &Path) -> io::Result<()> {
     // Ensure the destination directory exists before starting.
     fs::create_dir_all(dst)?;
 
-    for entry in fs::read_dir(src)? {
-        let entry = entry?;
-        let file_name = entry.file_name();
-        let child_src = entry.path();
-        let child_dst = dst.join(&file_name);
+    // Walk the source directory recursively and mirror structure into dst.
+    // We intentionally avoid following symlinks here to match prior behaviour.
+    for entry in WalkDir::new(src).min_depth(1).follow_links(false) {
+        let entry = entry.map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        let path = entry.path();
 
-        // Use the DirEntry file_type when possible to avoid an extra `stat`.
-        // Note: `file_type()` may follow platform semantics for symlinks; if
-        // symlink support is required change this logic accordingly.
-        let ft = entry.file_type()?;
+        let rel = path
+            .strip_prefix(src)
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        let target = dst.join(rel);
+
+        let ft = entry.file_type();
         if ft.is_dir() {
-            // Recurse into directories (creates child_dst inside recursive call).
-            copy_recursive(&child_src, &child_dst)?;
+            fs::create_dir_all(&target)?;
+        } else if ft.is_file() {
+            if let Some(parent) = target.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            crate::fs_op::helpers::atomic_copy_file(path, &target)?;
         } else {
-            // Use atomic copy for files to avoid observing partial files.
-            // Parent directories are created at the start of recursion and
-            // by recursive directory copies; an extra create here was
-            // defensive but unnecessary and removed to avoid redundant
-            // syscalls and to keep ordering explicit.
-            crate::fs_op::helpers::atomic_copy_file(&child_src, &child_dst)?;
+            // Skip other file types (symlinks, device nodes) for this helper.
         }
     }
 
