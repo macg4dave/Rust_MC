@@ -65,11 +65,24 @@ fn right_click_opens_context_menu() {
 
     // right-click near left panel first entry (column 2, row 5 to hit the actual file row)
     let term = Rect::new(0, 0, 80, 24);
-    let me = MouseEvent {
-        column: 2,
-        row: 5,
-        kind: MouseEventKind::Down(MouseButton::Right),
-    };
+        // right-click near the actual file row; compute the row dynamically
+        // (layout header/footer sizes change between UI implementations)
+        let mut idx = None;
+        for (i, e) in app.left.entries.iter().enumerate() {
+            if e.name == "rfile.txt" {
+                idx = Some(i);
+                break;
+            }
+        }
+        assert!(idx.is_some());
+        let header_count = 1usize;
+        let parent_count = if app.left.cwd.parent().is_some() { 1usize } else { 0usize };
+        let ui_row = 4 + 1 + header_count + parent_count + idx.unwrap();
+        let me = MouseEvent {
+            column: 2,
+            row: ui_row as u16,
+            kind: MouseEventKind::Down(MouseButton::Right),
+        };
     fileZoom::runner::handlers::handle_mouse(&mut app, me, term).unwrap();
     match app.mode {
         fileZoom::app::Mode::ContextMenu { .. } => {}

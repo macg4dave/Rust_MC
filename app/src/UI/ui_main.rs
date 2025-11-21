@@ -8,10 +8,16 @@ use crate::app::core::App as CoreApp;
 pub fn draw_frame<B: Backend>(terminal: &mut Terminal<B>, state: &UIState, theme: &Theme) -> std::io::Result<()> {
     terminal.draw(|f| {
         let size = f.area();
-        // menu (1), header (3), main (min), footer (2)
+        // menu (min 1, ideally 3), header (3), main (min), footer (2)
+        // The main menu uses a bordered Paragraph which needs vertical
+        // space for a top border, a content row, and a bottom border.
         let chunks = Layout::default()
             .direction(Direction::Vertical)
-            .constraints([Constraint::Length(1), Constraint::Length(3), Constraint::Min(0), Constraint::Length(2)])
+            // Make the top menu a flexible area (min 1) so very small
+            // terminals still render the menu content line even when total
+            // available height is low. The bordered rendering is used only
+            // when area.height >= 3.
+            .constraints([Constraint::Min(1), Constraint::Length(3), Constraint::Min(0), Constraint::Length(2)])
             .split(size);
 
         let main = Layout::default()
@@ -28,15 +34,24 @@ pub fn draw_frame<B: Backend>(terminal: &mut Terminal<B>, state: &UIState, theme
 }
 
 /// Legacy UI entrypoint used by the runner: draw directly into a Frame
-pub fn ui(f: &mut Frame, _app: &CoreApp) {
-    // Construct a tiny UIState view-model for scaffold draws.
-    let state = UIState::sample();
-    let theme = Theme::dark();
+pub fn ui(f: &mut Frame, app: &CoreApp) {
+    // Build a UIState view-model from the live Core App so the runner
+    // reflects the real runtime state (menu focus, selected index, preview, etc.).
+    let state = UIState::from_core(app);
+
+    // Choose a reasonable Theme matching the app settings string so
+    // `draw_frame` can render headers/file lists consistently with the
+    // configured theme. Default to dark if an unknown value is present.
+    let theme = match app.settings.theme.as_str() {
+        "light" => Theme::light(),
+        _ => Theme::dark(),
+    };
 
     let size = f.area();
+    // Make the top menu flexible so tiny terminals still get a content row.
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(1), Constraint::Length(3), Constraint::Min(0), Constraint::Length(2)])
+        .constraints([Constraint::Min(1), Constraint::Length(3), Constraint::Min(0), Constraint::Length(2)])
         .split(size);
     let main = Layout::default()
         .direction(Direction::Horizontal)

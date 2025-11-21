@@ -15,14 +15,20 @@ fn left_click_selects_entry_in_left_panel() {
 
     let term = Rect::new(0, 0, 80, 24);
     // row 4 -> clicked index = row - (chunks[2].y + 1) == 4 - 3 == 1
-    let me = MouseEvent {
-        column: 2,
-        row: 4,
+        let header_count = 1usize;
+        let parent_count = if app.left.cwd.parent().is_some() { 1usize } else { 0usize };
+        let first_domain_row = 4 + 1 + (header_count + parent_count) as u16;
+        let me = MouseEvent {
+            column: 2,
+            row: first_domain_row,
         kind: MouseEventKind::Down(fileZoom::input::mouse::MouseButton::Left),
     };
     handlers::handle_mouse(&mut app, me, term).unwrap();
     assert_eq!(app.active, Side::Left);
-    assert_eq!(app.left.selected, 1);
+    // expected selected index is header + parent count
+    let header_count = 1usize;
+    let parent_count = if app.left.cwd.parent().is_some() { 1usize } else { 0usize };
+    assert_eq!(app.left.selected, header_count + parent_count);
 }
 
 #[test]
@@ -35,9 +41,12 @@ fn right_click_opens_context_menu_for_selected_entry() {
 
     let term = Rect::new(0, 0, 80, 24);
     // right-click the second item (account for parent row; click row 5)
-    let me = MouseEvent {
-        column: 2,
-        row: 5,
+        let header_count = 1usize;
+        let parent_count = if app.left.cwd.parent().is_some() { 1usize } else { 0usize };
+        let second_item_row = 4 + 1 + (header_count + parent_count) as u16 + 1;
+        let me = MouseEvent {
+            column: 2,
+            row: second_item_row,
         kind: MouseEventKind::Down(fileZoom::input::mouse::MouseButton::Right),
     };
     handlers::handle_mouse(&mut app, me, term).unwrap();
@@ -86,9 +95,12 @@ fn double_click_enters_directory_in_left_panel() {
 
     let term = Rect::new(0, 0, 80, 24);
     // click the first item: account for header+parent synthetic rows (row 5)
-    let me = MouseEvent {
-        column: 2,
-        row: 5,
+        let header_count = 1usize;
+        let parent_count = if app.left.cwd.parent().is_some() { 1usize } else { 0usize };
+        let first_domain_row = 4 + 1 + (header_count + parent_count) as u16;
+        let me = MouseEvent {
+            column: 2,
+            row: first_domain_row,
         kind: MouseEventKind::Down(fileZoom::input::mouse::MouseButton::Left),
     };
     // first click selects

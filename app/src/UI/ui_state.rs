@@ -17,6 +17,29 @@ pub struct UIState {
     pub progress: u16,
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn from_core_maps_menu_state() {
+        // Construct a minimal App and manipulate menu state so we can
+        // verify the UIState mapping behaves as expected.
+        let mut app = crate::app::core::App::with_options(&crate::app::StartOptions::default()).expect("create app");
+        app.menu_index = 2;
+        app.menu_focused = true;
+        app.menu_state.open = true;
+        app.menu_state.submenu_index = Some(1);
+
+        let state = UIState::from_core(&app);
+
+        assert_eq!(state.menu_selected, 2);
+        assert!(state.menu_focused);
+        assert!(state.menu_open);
+        assert_eq!(state.menu_sub_selected, Some(1));
+    }
+}
+
 impl UIState {
     pub fn sample() -> Self {
         Self {
@@ -32,6 +55,8 @@ impl UIState {
             progress: 25,
         }
     }
+
+    
 
     /// Build a UIState view-model from the core App so UI rendering shows real data.
     pub fn from_core(app: &crate::app::core::App) -> Self {

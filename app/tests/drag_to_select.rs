@@ -40,22 +40,26 @@ fn drag_to_select_left_panel() {
     app.left.clear_selections();
 
     let term = Rect::new(0, 0, 80, 24);
-    // Start drag at the first visible entry (row 4), drag to the third entry (row 6)
-    let down = MouseEvent {
-        column: 2,
-        row: 4,
+        // Start drag at the first visible entry (compute dynamically to account for layout)
+        let header_count = 1usize;
+        let parent_count = if app.left.cwd.parent().is_some() { 1usize } else { 0usize };
+        let first_domain_row = 4 + 1 + (header_count + parent_count) as u16;
+
+        let down = MouseEvent {
+            column: 2,
+            row: first_domain_row,
         kind: MouseEventKind::Down(fileZoom::input::mouse::MouseButton::Left),
     };
     handlers::handle_mouse(&mut app, down, term).unwrap();
-    let drag = MouseEvent {
-        column: 2,
-        row: 6,
+        let drag = MouseEvent {
+            column: 2,
+            row: first_domain_row + 2,
         kind: MouseEventKind::Drag(fileZoom::input::mouse::MouseButton::Left),
     };
     handlers::handle_mouse(&mut app, drag, term).unwrap();
     let up = MouseEvent {
         column: 2,
-        row: 6,
+        row: first_domain_row + 2,
         kind: MouseEventKind::Up(fileZoom::input::mouse::MouseButton::Left),
     };
     handlers::handle_mouse(&mut app, up, term).unwrap();

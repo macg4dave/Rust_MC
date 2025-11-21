@@ -11,6 +11,13 @@ pub fn render(f: &mut Frame, area: Rect, active_index: usize, focused: bool) {
     let content = parts.join(" | ");
     let colors = crate::ui::colors::current();
     let style = if focused { colors.menu_style } else { colors.menu_inactive_style };
-    let p = Paragraph::new(content).block(Block::default().borders(Borders::ALL)).style(style);
+    // If the allocated vertical height is too small to show the bordered
+    // block (needs 3 rows for top border, content, bottom border), render
+    // the content without borders so the active label remains visible.
+    let p = if area.height >= 3 {
+        Paragraph::new(content).block(Block::default().borders(Borders::ALL)).style(style)
+    } else {
+        Paragraph::new(content).style(style)
+    };
     f.render_widget(p, area);
 }
