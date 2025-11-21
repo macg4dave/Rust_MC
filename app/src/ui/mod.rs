@@ -14,6 +14,7 @@ pub mod menu;
 pub mod modal;
 pub mod panels;
 pub mod util;
+pub mod file_stats_ui;
 
 pub use bar_ui::*;
 pub use dialogs::*;
@@ -21,6 +22,7 @@ pub use header::*;
 pub use menu::*;
 pub use modal::*;
 pub use panels::*;
+pub use file_stats_ui::*;
 
 pub fn ui(f: &mut Frame, app: &App) {
     // Top menu (1), status (1), main panes (min), bottom help (1)

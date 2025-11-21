@@ -198,4 +198,10 @@
     that exercises `execute_command` end-to-end (menu navigation, preview
     toggle and activation) and validates `App` state transitions.
   - Result: improved maintainability, clearer parsing/dispatch separation
+
+- UI: Add file details (file-stats) view and preview fallback
+  - Implement `app/src/ui/file_stats_ui.rs` to render lightweight file metadata
+    (name, path, size, modified) and provide a small smoke-test.
+  - Preview now falls back to the file-stats view when no textual preview is
+    available (maintains existing behaviour when preview text exists).
     and the test-suite passes after the change.

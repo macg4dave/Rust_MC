@@ -46,13 +46,29 @@ pub fn draw_preview(f: &mut Frame, area: Rect, panel: &Panel) {
         acc.push('\n');
         acc
     });
-    let preview = Paragraph::new(text).block(
-        Block::default()
-            .borders(Borders::ALL)
-            .title("Preview")
-            .style(theme.preview_block_style),
-    );
-    f.render_widget(preview, cols[0]);
+    // If we have textual preview content render it; otherwise fall back to a
+    // concise file-details view for the selected entry (if present) or a
+    // simple "no preview" placeholder.
+    if !text.trim().is_empty() {
+        let preview = Paragraph::new(text).block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Preview")
+                .style(theme.preview_block_style),
+        );
+        f.render_widget(preview, cols[0]);
+    } else if let Some(entry) = panel.selected_entry() {
+        // Draw a compact file details block into the preview region.
+        crate::ui::file_stats_ui::draw_file_stats(f, cols[0], entry);
+    } else {
+        let preview = Paragraph::new("No preview available").block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Preview")
+                .style(theme.preview_block_style),
+        );
+        f.render_widget(preview, cols[0]);
+    }
     let max_lines = (cols[0].height as usize).saturating_sub(2);
     // Render scrollbar for preview using ratatui::widgets::Scrollbar
     let mut sb_state = ScrollbarState::new(lines.len())
