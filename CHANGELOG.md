@@ -144,3 +144,24 @@
     cd app
     cargo test -p fileZoom --features test-helpers -- --nocapture
     ```
+
+- Refactor: `fs_op::path` path resolver
+  - Reworked `app/src/fs_op/path.rs` to improve clarity and robustness:
+    - Replace manual `Display`/`Error` impl with `thiserror`-derived
+      `PathError` for clearer diagnostics and easier conversions.
+    - Use `directories_next::UserDirs` (with an env-var fallback) for reliable
+      cross-platform `~` expansion.
+    - Simplified `resolve_path` logic, tightened types, and removed
+      duplicated code paths.
+    - Tightened visibility and removed unused imports.
+  - Tests: moved module-level unit tests into the integration test
+    `app/tests/fs_op_path.rs` to centralise fs-op behaviour checks.
+  - Rationale: improves portability, error clarity, and aligns with
+    idiomatic Rust; change is non-breaking for public API and tests pass.
+
+- Refactor: `app/src/fs_op/stat.rs`
+  - Consolidated simple path predicates into a small `PathType` enum and
+    introduced `PathType::of` to classify path kinds (NotFound/Directory/File/Other).
+  - Reimplemented `exists`, `is_dir`, and `is_file` to use the classifier
+    (reduces duplicated filesystem checks) and added unit tests.
+  - Behaviour and public helpers remain compatible; tests updated and pass.

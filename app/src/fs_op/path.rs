@@ -1,27 +1,25 @@
-use std::fmt;
+use directories_next::UserDirs;
 use std::path::{Path, PathBuf};
 
 /// Errors that can occur when resolving a user-supplied path.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(thiserror::Error, Debug, PartialEq, Eq)]
 pub enum PathError {
+    /// The provided input string was empty or contained only whitespace.
+    #[error("empty path")]
     Empty,
+
+    /// The user's home directory could not be determined when expanding `~`.
+    #[error("could not determine home directory")]
     HomeNotFound,
+
+    /// The resolved path does not exist on the filesystem.
+    #[error("path does not exist: {0}")]
     NotFound(PathBuf),
+
+    /// The resolved path exists but is not a directory.
+    #[error("not a directory: {0}")]
     NotDirectory(PathBuf),
 }
-
-impl fmt::Display for PathError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            PathError::Empty => write!(f, "empty path"),
-            PathError::HomeNotFound => write!(f, "could not determine home directory"),
-            PathError::NotFound(p) => write!(f, "path does not exist: {}", p.display()),
-            PathError::NotDirectory(p) => write!(f, "not a directory: {}", p.display()),
-        }
-    }
-}
-
-impl std::error::Error for PathError {}
 
 /// Resolve and validate a user-supplied path for changing panel cwd.
 ///
@@ -33,6 +31,15 @@ impl std::error::Error for PathError {}
 /// - Relative paths are resolved relative to `base`.
 /// - The returned path must exist and be a directory; otherwise a `PathError`
 ///   describing the problem is returned.
+/// Resolve and validate a user-supplied path for changing panel cwd.
+///
+/// Behaviour:
+/// - Empty `input` is an error.
+/// - A leading `~` is expanded to the user's home directory.
+/// - Absolute paths are returned as-is.
+/// - Relative paths are resolved relative to `base`.
+/// - The returned path must exist and be a directory; otherwise a `PathError`
+///   describing the problem is returned.
 pub fn resolve_path(input: &str, base: &Path) -> Result<PathBuf, PathError> {
     let input = input.trim();
     if input.is_empty() {
@@ -40,14 +47,11 @@ pub fn resolve_path(input: &str, base: &Path) -> Result<PathBuf, PathError> {
     }
 
     let candidate = if input.starts_with('~') {
-        match expand_tilde(input) {
-            Some(p) => p,
-            None => return Err(PathError::HomeNotFound),
-        }
+        expand_tilde(input).ok_or(PathError::HomeNotFound)?
     } else {
-        let p = PathBuf::from(input);
+        let p = Path::new(input);
         if p.is_absolute() {
-            p
+            p.to_path_buf()
         } else {
             base.join(p)
         }
@@ -65,14 +69,28 @@ pub fn resolve_path(input: &str, base: &Path) -> Result<PathBuf, PathError> {
 // Expand a path beginning with `~` into a `PathBuf` pointing at the user's
 // home directory. Returns `None` when the home directory cannot be determined.
 fn expand_tilde(input: &str) -> Option<PathBuf> {
-    // Accept both `HOME` (Unix) and `USERPROFILE` (Windows) for portability.
-    let home = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE"))?;
+    // `input` begins with `~`.
     let rest = input.trim_start_matches('~');
+
+    // Prefer `directories_next` for a reliable, cross-platform home dir.
+    if let Some(ud) = UserDirs::new() {
+        let mut p = ud.home_dir().to_path_buf();
+        if !rest.is_empty() {
+            let trimmed = rest.trim_start_matches(|c| c == '/' || c == '\\');
+            p.push(trimmed);
+        }
+        return Some(p);
+    }
+
+    // Fallback to environment variables for compatibility.
+    let home = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE"))?;
     let mut p = PathBuf::from(home);
     if !rest.is_empty() {
-        // Trim leading separators so `~/foo` and `~foo` behave sensibly.
-        let trimmed = rest.trim_start_matches(|c| ['/', '\\'].contains(&c));
+        let trimmed = rest.trim_start_matches(|c| c == '/' || c == '\\');
         p.push(trimmed);
     }
     Some(p)
 }
+
+/* Unit tests moved to integration tests under `app/tests/` to centralize
+   fs-op path behaviour checks. */

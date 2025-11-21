@@ -1,10 +1,9 @@
-use std::fmt;
 use std::fs::{self, OpenOptions};
 use std::path::{Path, PathBuf};
 use std::process;
-use std::time::SystemTime;
+use std::time::{SystemTime, UNIX_EPOCH};
 
-use std::result::Result as StdResult;
+use thiserror::Error;
 use walkdir::WalkDir;
 
 /// Basic permission information for a filesystem path.
@@ -28,7 +27,9 @@ pub struct PermissionInfo {
 }
 
 impl PermissionInfo {
-    fn new(path: PathBuf) -> Self {
+    /// Create a new `PermissionInfo` for `path` with default (false/None)
+    /// values. Callers should populate fields after metadata inspection.
+    pub fn new(path: PathBuf) -> Self {
         PermissionInfo {
             path,
             unix_mode: None,
@@ -42,34 +43,16 @@ impl PermissionInfo {
 }
 
 /// Errors that can occur while inspecting or changing permissions.
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum PermissionError {
-    Io(std::io::Error),
+    /// Underlying I/O error.
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+
+    /// Operation is not supported on this platform (e.g. setting Unix-only
+    /// mode on Windows).
+    #[error("operation not supported on this platform")]
     Unsupported,
-}
-
-impl fmt::Display for PermissionError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            PermissionError::Io(e) => write!(f, "IO error: {}", e),
-            PermissionError::Unsupported => write!(f, "operation not supported on this platform"),
-        }
-    }
-}
-
-impl std::error::Error for PermissionError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            PermissionError::Io(e) => Some(e),
-            _ => None,
-        }
-    }
-}
-
-impl From<std::io::Error> for PermissionError {
-    fn from(e: std::io::Error) -> Self {
-        PermissionError::Io(e)
-    }
 }
 
 /// Inspect permissions for `path`.
@@ -82,14 +65,20 @@ impl From<std::io::Error> for PermissionError {
 /// This function is best-effort and is intended to give the TUI enough
 /// information to decide how to present actions to the user. It avoids making
 /// destructive changes by default.
+/// Inspect permissions for `path`.
+///
+/// - `test_write`: when `true`, the function will perform a non-destructive
+///   write test for directories by creating and removing a small probe file.
+///   For files it will attempt to open for writing. When `false` the function
+///   uses metadata and best-effort open checks without creating files.
 pub fn inspect_permissions<P: AsRef<Path>>(
     path: P,
     test_write: bool,
-) -> StdResult<PermissionInfo, PermissionError> {
+) -> Result<PermissionInfo, PermissionError> {
     let path = path.as_ref().to_path_buf();
     let mut info = PermissionInfo::new(path.clone());
 
-    let meta = fs::metadata(&path).map_err(PermissionError::Io)?;
+    let meta = fs::metadata(&path)?;
     info.is_dir = meta.is_dir();
     info.readonly = meta.permissions().readonly();
 
@@ -106,45 +95,40 @@ pub fn inspect_permissions<P: AsRef<Path>>(
     info.can_read = if info.is_dir {
         // Use WalkDir to probe directory readability without listing deeply.
         WalkDir::new(&path)
-            .min_depth(0)
             .max_depth(0)
             .into_iter()
             .next()
-            .map(|r| r.is_ok())
-            .unwrap_or(false)
+            .map_or(false, |r| r.is_ok())
     } else {
         OpenOptions::new().read(true).open(&path).is_ok()
     };
 
     // Best-effort write check. If test_write is false, prefer metadata only
     // (non destructive). If true, attempt to open/create a probe to verify.
-    if !test_write {
+    info.can_write = if !test_write {
         // conservative check: if metadata says readonly then false, otherwise
         // optimistic true for files and directories (will still fail at action time)
-        info.can_write = !info.readonly;
+        !info.readonly
     } else if info.is_dir {
         // attempt to create a probe file inside the directory
-        let probe_name = format!(
-            ".perm_probe_{}_{}",
-            process::id(),
-            SystemTime::now()
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .map(|d| d.as_nanos())
-                .unwrap_or_default()
-        );
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or_default();
+        let probe_name = format!(".perm_probe_{}_{}", process::id(), nanos);
         let probe_path = path.join(probe_name);
+
         // Use atomic write for the probe so that the creation is safe and
         // the implementation leaves no partial files. Remove the probe
         // afterwards and treat the sequence as success only if both
         // operations succeed.
-        let created = match crate::fs_op::helpers::atomic_write(&probe_path, b".") {
+        match crate::fs_op::helpers::atomic_write(&probe_path, b".") {
             Ok(()) => fs::remove_file(&probe_path).is_ok(),
             Err(_) => false,
-        };
-        info.can_write = created;
+        }
     } else {
-        info.can_write = OpenOptions::new().write(true).open(&path).is_ok();
-    }
+        OpenOptions::new().write(true).open(&path).is_ok()
+    };
 
     Ok(info)
 }
@@ -153,24 +137,61 @@ pub fn inspect_permissions<P: AsRef<Path>>(
 ///
 /// On non-Unix platforms this returns an error indicating unsupported.
 #[cfg(unix)]
-pub fn change_permissions<P: AsRef<Path>>(path: P, mode: u32) -> StdResult<(), PermissionError> {
+pub fn change_permissions<P: AsRef<Path>>(path: P, mode: u32) -> Result<(), PermissionError> {
     use std::os::unix::fs::PermissionsExt;
 
     let path = path.as_ref();
     let perm = fs::Permissions::from_mode(mode);
-    fs::set_permissions(path, perm).map_err(PermissionError::Io)?;
+    fs::set_permissions(path, perm)?;
     Ok(())
 }
 
 #[cfg(not(unix))]
-pub fn change_permissions<P: AsRef<Path>>(_path: P, _mode: u32) -> StdResult<(), PermissionError> {
+pub fn change_permissions<P: AsRef<Path>>(_path: P, _mode: u32) -> Result<(), PermissionError> {
     Err(PermissionError::Unsupported)
 }
 
 /// Helper to render a human-friendly octal mode when available.
 pub fn format_unix_mode(mode: Option<u32>) -> String {
-    match mode {
-        Some(m) => format!("{:#o}", m),
-        None => "n/a".to_string(),
+    mode.map(|m| format!("{:#o}", m)).unwrap_or_else(|| "n/a".to_string())
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::{tempdir, NamedTempFile};
+    use std::io::Write;
+
+    #[test]
+    fn format_unix_mode_some_and_none() {
+        assert_eq!(format_unix_mode(Some(0o644)), "0o644");
+        assert_eq!(format_unix_mode(None), "n/a");
+    }
+
+    #[test]
+    fn inspect_permissions_file_read_write() {
+        let mut f = NamedTempFile::new().expect("create temp file");
+        writeln!(f, "hello").expect("write");
+        let p = f.path().to_path_buf();
+
+        let info = inspect_permissions(&p, false).expect("inspect");
+        assert!(!info.is_dir);
+        assert!(info.can_read, "file should be readable");
+        assert!(info.can_write, "file should be writable when not testing write");
+
+        let info2 = inspect_permissions(&p, true).expect("inspect test_write");
+        assert!(info2.can_read);
+        // write test should succeed for a regular temp file
+        assert!(info2.can_write, "file should be writable with test_write=true");
+    }
+
+    #[test]
+    fn inspect_permissions_dir_probe() {
+        let d = tempdir().expect("tempdir");
+        let info = inspect_permissions(d.path(), true).expect("inspect dir");
+        assert!(info.is_dir);
+        assert!(info.can_read, "dir should be readable");
+        assert!(info.can_write, "dir should be writable (probe create/remove)");
     }
 }
