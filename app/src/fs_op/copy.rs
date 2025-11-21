@@ -1,7 +1,7 @@
 use std::fs;
 use std::io;
 use std::path::Path;
-use walkdir::WalkDir;
+use fs_extra::dir::{copy as dir_copy, CopyOptions};
 
 /// Recursively copy `src` directory into `dst`.
 ///
@@ -14,29 +14,29 @@ pub(crate) fn copy_recursive(src: &Path, dst: &Path) -> io::Result<()> {
     // Ensure the destination directory exists before starting.
     fs::create_dir_all(dst)?;
 
-    // Walk the source directory recursively and mirror structure into dst.
-    // We intentionally avoid following symlinks here to match prior behaviour.
-    for entry in WalkDir::new(src).min_depth(1).follow_links(false) {
-        let entry = entry.map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-        let path = entry.path();
+    // Use `fs_extra`'s directory copy functionality to copy the contents of
+    // `src` into `dst`. This simplifies the implementation and provides
+    // robust options for recursive copies. We keep behaviour similar to the
+    // previous implementation by copying the directory contents (not the
+    // source directory itself) into the already-created `dst`.
+    let mut options = CopyOptions::new();
+    // `copy_inside = true` copies the contents of `src` into `dst` rather
+    // than copying the `src` folder itself.
+    options.copy_inside = true;
+    // Do not overwrite existing files by default; preserve prior behaviour.
+    options.overwrite = false;
+    // Use a 64 KiB buffer for recursive directory copies where supported.
+    options.buffer_size = 64 * 1024;
 
-        let rel = path
-            .strip_prefix(src)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-        let target = dst.join(rel);
-
-        let ft = entry.file_type();
-        if ft.is_dir() {
-            fs::create_dir_all(&target)?;
-        } else if ft.is_file() {
-            if let Some(parent) = target.parent() {
-                fs::create_dir_all(parent)?;
+    // fs_extra returns its own error type; map it to io::Error for callers.
+    match dir_copy(src, dst, &options) {
+        Ok(_) => {
+            // Preserve permissions/timestamps from source tree into dst.
+            if let Err(e) = crate::fs_op::metadata::preserve_all_metadata(src, dst) {
+                return Err(e);
             }
-            crate::fs_op::helpers::atomic_copy_file(path, &target)?;
-        } else {
-            // Skip other file types (symlinks, device nodes) for this helper.
+            Ok(())
         }
+        Err(e) => Err(io::Error::new(io::ErrorKind::Other, e)),
     }
-
-    Ok(())
 }

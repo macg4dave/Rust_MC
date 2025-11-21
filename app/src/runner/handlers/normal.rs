@@ -3,6 +3,8 @@ use crate::errors;
 use crate::input::KeyCode;
 use crate::runner::progress::{OperationDecision, ProgressUpdate};
 use std::path::PathBuf;
+use fs_extra::copy_items;
+use fs_extra::dir::CopyOptions as FsCopyOptions;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc};
 
@@ -203,6 +205,74 @@ pub fn handle_normal(app: &mut App, code: KeyCode, page_size: usize) -> anyhow::
             app.op_cancel_flag = Some(cancel_flag.clone());
 
             std::thread::spawn(move || {
+                // Fast-path: if none of the targets already exist, we can copy
+                // all items in one batch using `fs_extra::copy_items`, which is
+                // typically faster. If any target exists we must keep the
+                // interactive per-item conflict handling below.
+                let mut any_conflict = false;
+                for src in &src_paths {
+                    if let Some(fname) = src.file_name() {
+                        let target = dst_dir.join(fname);
+                        if target.exists() {
+                            any_conflict = true;
+                            break;
+                        }
+                    }
+                }
+                if !any_conflict {
+                    let mut options = FsCopyOptions::new();
+                    options.copy_inside = false; // copy the items themselves into dst
+                    options.overwrite = false;
+                    // Use a 64 KiB buffer for batch copies to balance throughput and memory.
+                    options.buffer_size = 64 * 1024;
+                    match copy_items(&src_paths, &dst_dir, &options) {
+                        Ok(_) => {
+                            // After a successful batch copy, attempt to preserve
+                            // permissions/timestamps for each copied item. This is
+                            // best-effort and will not abort the operation on
+                            // failures; if preserving metadata fails we'll send
+                            // an error update instead.
+                            for src in &src_paths {
+                                if let Some(fname) = src.file_name() {
+                                    let target = dst_dir.join(fname);
+                                    let _ = crate::fs_op::metadata::preserve_all_metadata(src, &target);
+                                }
+                            }
+                            // send progress updates for each item
+                            for (i, src) in src_paths.into_iter().enumerate() {
+                                let _ = tx.send(ProgressUpdate {
+                                    processed: i + 1,
+                                    total,
+                                    message: Some(format!("Copied {}", src.display())),
+                                    done: false,
+                                    error: None,
+                                    conflict: None,
+                                });
+                            }
+                            let _ = tx.send(ProgressUpdate {
+                                processed: total,
+                                total,
+                                message: Some("Completed".to_string()),
+                                done: true,
+                                error: None,
+                                conflict: None,
+                            });
+                            return;
+                        }
+                        Err(e) => {
+                            let _ = tx.send(ProgressUpdate {
+                                processed: 0,
+                                total,
+                                message: Some(format!("Error: {}", e)),
+                                done: true,
+                                error: Some(format!("{}", e)),
+                                conflict: None,
+                            });
+                            return;
+                        }
+                    }
+                }
+
                 let mut overwrite_all = false;
                 let mut skip_all = false;
                 for (i, src) in src_paths.into_iter().enumerate() {

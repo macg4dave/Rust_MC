@@ -15,6 +15,16 @@
   - `app/src/fs_op/mv.rs`
   - `app/src/building/make_fakefs_lib.rs`
 
+- Adopt `fs_extra` for file/directory copy operations and add metadata
+  preservation hooks:
+  - Use `fs_extra` for recursive and batch copies where appropriate to
+    improve throughput and simplify implementation.
+  - Preserve permissions and timestamps (best-effort) after copies to
+    better retain source metadata; atomic single-file copies still use
+    the project's `atomic_copy_file` helper to avoid exposing partially
+    written files.
+  - `CopyOptions` tuned for the project: 64 KiB buffer and `overwrite = false`.
+
 ### Notes
 
 - Tests run locally and currently pass.

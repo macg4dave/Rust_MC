@@ -1,6 +1,7 @@
 use std::fs;
 use std::io;
 use std::path::PathBuf;
+use fs_extra::file::{copy as fs_extra_copy, CopyOptions};
 
 /// Resolve destination path for an operation: if `dst` looks like a directory
 /// (exists or ends with a separator) then target becomes `dst.join(src_name)`.
@@ -104,7 +105,12 @@ pub fn atomic_copy_file(src: &std::path::Path, dst: &std::path::Path) -> io::Res
             .collect();
         tmp.set_file_name(format!(".tmp_atomic_copy.{}", suffix));
         // Copy into temp file then rename. Clean up temp file on error.
-        match fs::copy(src, &tmp) {
+        // Use fs_extra file copy for potentially better performance/options
+        let mut options = CopyOptions::new();
+        options.overwrite = false;
+        // Use a 64 KiB buffer for file copies to balance throughput and memory.
+        options.buffer_size = 64 * 1024;
+        match fs_extra_copy(src, &tmp, &options).map_err(|e| io::Error::new(io::ErrorKind::Other, e)) {
             Ok(n) => {
                 // In tests we may force a rename failure to verify cleanup.
                 {
@@ -114,7 +120,11 @@ pub fn atomic_copy_file(src: &std::path::Path, dst: &std::path::Path) -> io::Res
                     }
                 }
                 match fs::rename(&tmp, dst) {
-                    Ok(()) => Ok(n),
+                    Ok(()) => {
+                        // Preserve metadata (permissions/timestamps) from src -> dst.
+                        let _ = crate::fs_op::metadata::preserve_all_metadata(src, dst);
+                        Ok(n)
+                    }
                     Err(e) => {
                         let _ = fs::remove_file(&tmp);
                         Err(e)
@@ -127,7 +137,13 @@ pub fn atomic_copy_file(src: &std::path::Path, dst: &std::path::Path) -> io::Res
             }
         }
     } else {
-        fs::copy(src, dst)
+        let mut options = CopyOptions::new();
+        options.overwrite = false;
+        options.buffer_size = 64 * 1024;
+        let res = fs_extra_copy(src, dst, &options).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        // Best-effort: preserve timestamps and permissions on the final dst
+        let _ = crate::fs_op::metadata::preserve_all_metadata(src, dst);
+        Ok(res)
     }
 }
 

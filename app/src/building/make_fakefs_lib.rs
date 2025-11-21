@@ -4,48 +4,14 @@ use std::io::Read;
 use std::io::Write;
 use std::path::Path;
 use std::process::Command;
-use walkdir::WalkDir;
+// walkdir is no longer required here; keep imports minimal.
 
 /// Copy a directory recursively from `src` to `dst`.
 pub fn copy_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
-    if !src.exists() {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            "source not found",
-        ));
-    }
-    fs::create_dir_all(dst)?;
-
-    for entry in WalkDir::new(src).min_depth(1).follow_links(false) {
-        let entry = entry.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
-        let from = entry.path();
-        let rel = from.strip_prefix(src).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
-        let to = dst.join(rel);
-        let ft = entry.file_type();
-
-        if ft.is_dir() {
-            fs::create_dir_all(&to)?;
-        } else if ft.is_file() {
-            if let Some(parent) = to.parent() {
-                fs::create_dir_all(parent)?;
-            }
-            fs::copy(&from, &to)?;
-        } else if ft.is_symlink() {
-            if let Ok(target) = fs::read_link(&from) {
-                #[cfg(unix)]
-                {
-                    std::os::unix::fs::symlink(&target, &to)?;
-                }
-                #[cfg(not(unix))]
-                {
-                    if target.is_file() {
-                        fs::copy(&target, &to)?;
-                    }
-                }
-            }
-        }
-    }
-    Ok(())
+    // Reuse the shared `fs_op::copy::copy_recursive` helper to avoid
+    // duplicating traversal logic and to benefit from `fs_extra` where
+    // that helper chooses to use it.
+    crate::fs_op::copy::copy_recursive(src, dst)
 }
 
 /// Build a Docker image. If `fixtures` is Some, this creates a temporary
@@ -137,14 +103,17 @@ pub fn build_image_with_fixtures(fixtures: Option<&Path>, current_dir: &Path) ->
             // expects (`app/target/release/fileZoom`).
             if !expected_bin.exists() {
                 let alt = build_ctx.join("target").join("release").join("fileZoom");
-                if alt.exists() {
+                    if alt.exists() {
                     if let Some(parent) = expected_bin.parent() {
                         fs::create_dir_all(parent)
                             .context("creating parent dir for expected binary")?;
                     }
-                    fs::copy(&alt, &expected_bin).context(
-                        "copying workspace-level built binary into expected app/target path",
-                    )?;
+                    // Use atomic_copy_file to copy built binary into expected path
+                    let _ = crate::fs_op::helpers::atomic_copy_file(&alt, &expected_bin)
+                        .map_err(|e| anyhow::anyhow!(e))
+                        .context(
+                            "copying workspace-level built binary into expected app/target path",
+                        )?;
                 }
             }
 

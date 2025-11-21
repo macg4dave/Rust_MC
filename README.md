@@ -79,6 +79,19 @@ Prerequisites & notes
   Linux), the helper generates a temporary multi-stage Dockerfile and builds a
   Linux release binary inside the image.
 
+Filesystem copy behavior
+------------------------
+
+- The project uses the `fs_extra` crate for recursive and batch copy
+  operations where appropriate to improve performance and simplify the
+  implementation. Single-file copies use an atomic temporary-file+rename
+  helper so other processes never observe partially-written files.
+- After copy operations `fileZoom` attempts to preserve permission bits and
+  file timestamps (best-effort). By default files are not overwritten when
+  copying into destinations that already exist (`overwrite = false`).
+- If you need exact platform-specific ownership preservation (UID/GID), the
+  code intentionally does not modify ownership to avoid portability issues.
+
 If you want different fixture defaults (counts, multilingual probability, tree
 depth/branching), tell me the desired values and I will update the generator.
 
