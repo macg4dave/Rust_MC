@@ -115,3 +115,32 @@
     `render_fsop_error` where appropriate.
   - Tests updated/added for move/rename fallback behaviour (feature
     `test-helpers`). All tests pass locally after the change.
+
+  - Refactor: move/copy helpers and richer move errors
+    - Refactored `app/src/fs_op/mv.rs` to follow idiomatic Rust: simplified
+      error propagation using `?`, deterministic directory creation, and
+      parallel file copying where appropriate. The `move_path` API retains
+      its stable signature but falls back from `rename` to a copy+remove
+      strategy on platforms/filesystems where `rename` fails.
+    - Replaced ad-hoc error plumbing with structured errors (using
+      `thiserror`) and expanded the move error variant to include
+      contextual fields (`src`, `dest`, `context`) to improve diagnostics.
+    - Added integration tests `app/tests/mv_edge_cases.rs` that exercise
+      symlink-to-directory copy behaviour and move fallback/error handling
+      when the destination is unwritable.
+
+- Test-hooks: move and feature-gate
+  - Move test-only failure hooks used by filesystem operation tests into a
+    dedicated module: `app/src/fs_op/test_helpers.rs`.
+  - Expose a small, stable API under `crate::fs_op::test_helpers` used by
+    unit tests to force rename/copy/write failure paths and to acquire a
+    global test lock when mutating hooks.
+  - The hooks are enabled when running with the Cargo feature
+    `test-helpers`; when the feature is not enabled the module provides
+    safe no-op fallbacks so production builds are unaffected.
+  - Enable the feature when running tests that rely on the hooks, e.g.:
+
+    ```bash
+    cd app
+    cargo test -p fileZoom --features test-helpers -- --nocapture
+    ```

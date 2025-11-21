@@ -3,6 +3,7 @@ pub mod copy;
 pub mod create;
 pub mod files;
 pub mod helpers;
+pub mod test_helpers;
 pub mod error;
 pub mod metadata;
 pub mod posix_acl;

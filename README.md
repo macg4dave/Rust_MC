@@ -19,6 +19,26 @@ Important paths
 - Errors and localization: `app/src/errors/`.
 - Building helpers and scripts: `app/building/`, `app/building/make_fakefs/`, `app/scripts/`.
 - Test helpers and fixtures: `app/test_helper/`, `app/src/test_helpers/`, and integration tests in `app/tests/` and top-level `tests/`.
+- Test helpers and fixtures: `app/test_helper/`, `app/src/test_helpers/`, and integration tests in `app/tests/` and top-level `tests/`.
+  - Developer note: filesystem operation tests use a small set of test-hooks
+    (forcing rename/copy/write failures and a global test lock) which live in
+    `app/src/fs_op/test_helpers.rs`. The hooks are gated behind the Cargo
+    feature `test-helpers` and provide no-op fallbacks when the feature is
+    not enabled so production builds remain unaffected.
+    - API (available under `crate::fs_op::test_helpers`):
+      `set_force_rename_fail_in_copy(bool)`,
+      `should_force_rename_fail_in_copy() -> bool`,
+      `set_force_rename_fail_in_write(bool)`,
+      `should_force_rename_fail_in_write() -> bool`,
+      `set_force_rename_fail_in_rename_or_copy(bool)`,
+      `should_force_rename_fail_in_rename_or_copy() -> bool`,
+      and `acquire_test_lock()`.
+    - To run tests that rely on these hooks enable the feature:
+
+    ```bash
+    cd app
+    cargo test -p fileZoom --features test-helpers -- --nocapture
+    ```
 - Docker and packaging: `app/docker/`.
 
 **Quick Usage: `make_fakefs`**
