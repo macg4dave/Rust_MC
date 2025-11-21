@@ -35,12 +35,22 @@ pub fn handle_mouse(app: &mut App, me: MouseEvent, term_rect: Rect) -> Result<bo
         let labels = menu::menu_labels();
         if !labels.is_empty() && me.column < term_rect.width {
             let idx = crate::ui::menu_model::MenuState::index_for_x(me.column, term_rect.width as u16, &labels);
-            if idx == app.menu_index && matches!(me.kind, MouseEventKind::Down(MouseButton::Left)) {
+            if idx == app.menu_index {
+                // Map the click within the header area to a submenu row index
+                // (row offset inside the header area). If the submenu vector
+                // exists, clamp the selected index and activate it on left click.
                 if let Some(top) = crate::ui::menu_model::MenuModel::default_model().0.get(app.menu_index) {
-                    if top.submenu.is_some() {
-                        app.menu_state.submenu_index = Some(0usize);
-                        app.menu_activate();
-                        return Ok(true);
+                    if let Some(sub) = &top.submenu {
+                        let row_off = (me.row as i32 - chunks[1].y as i32) as usize;
+                        let sel = std::cmp::min(row_off, sub.len().saturating_sub(1));
+                        if matches!(me.kind, MouseEventKind::Down(MouseButton::Left)) {
+                            app.menu_state.submenu_index = Some(sel);
+                            app.menu_activate();
+                            return Ok(true);
+                        } else {
+                            // Non-click interactions set selection but do not activate
+                            app.menu_state.submenu_index = Some(sel);
+                        }
                     }
                 }
             }
@@ -131,7 +141,7 @@ fn split_vertical(term_rect: Rect) -> Vec<Rect> {
         .constraints(
             [
                 Constraint::Length(1),
-                Constraint::Length(1),
+                Constraint::Length(3),
                 Constraint::Min(0),
                 Constraint::Length(1),
             ]

@@ -50,6 +50,25 @@ fn mouse_open_submenu_then_click_first_item_activates() {
 }
 
 #[test]
+fn mouse_open_submenu_then_click_second_item_activates() {
+    let mut app = App::new().unwrap();
+    let term = Rect::new(0, 0, 80, 24);
+    // open the top submenu by clicking the top label (approximate x)
+    let click_top = MouseEvent { column: 35, row: 0, kind: MouseEventKind::Down(MouseButton::Left) };
+    let _ = handlers::handle_mouse(&mut app, click_top, term).unwrap();
+    assert!(app.menu_state.open);
+
+    // clicking the second row inside the header should activate the second submenu item
+    let click_sub = MouseEvent { column: 35, row: 2, kind: MouseEventKind::Down(MouseButton::Left) };
+    let res2 = handlers::handle_mouse(&mut app, click_sub, term).unwrap();
+    assert!(res2);
+    match app.mode {
+        Mode::Input { kind, .. } => assert_eq!(kind, fileZoom::app::InputKind::NewDir),
+        other => panic!("expected NewDir input mode, got: {:?}", other),
+    }
+}
+
+#[test]
 fn menu_click_copy_starts_progress() {
     let mut app = App::new().unwrap();
     // click near the area that maps to the Copy label (index 1)

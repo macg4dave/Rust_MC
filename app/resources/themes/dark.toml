@@ -1,1 +1,17 @@
 palette = { bg = "#0B0C0D", fg = "#C0C0C0", accent = "#00BCD4" }
+
+[panels]
+panel_bg = "#0D0E10"
+panel_fg = "#C8C8C8"
+panel_border = "#333333"
+selected_bg = "#005f87"
+selected_fg = "#FFFFFF"
+inactive_selected_bg = "#151617"
+preview_bg = "#070708"
+preview_fg = "#D0D0D0"
+header_bg = "#000000"
+header_fg = "#FFFFFF"
+footer_bg = "#0B0C0D"
+footer_fg = "#A0A0A0"
+scrollbar_thumb_bg = "#3A3F44"
+scrollbar_track_bg = "#0B0C0D"

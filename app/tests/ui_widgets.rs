@@ -17,6 +17,6 @@ fn header_and_panels_render() {
 
     t.draw(|f| {
         let area = Rect::new(0, 3, 40, 6);
-        fileZoom::ui::widgets::file_list::render(f, area, &state, &theme);
+        fileZoom::ui::widgets::file_list::render(f, area, &state.left_list, state.left_selected, &theme);
     }).unwrap();
 }

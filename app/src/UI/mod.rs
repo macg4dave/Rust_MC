@@ -12,6 +12,7 @@ pub mod widgets {
     pub mod header;
     pub mod footer;
     pub mod main_menu;
+    pub mod submenu;
     pub mod file_list;
     pub mod preview;
     pub mod progress_bar;

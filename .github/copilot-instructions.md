@@ -45,6 +45,7 @@ instructions give AI agents precise, actionable guidance.
 - ratatui and crossterm logging practices must be followed.
 - ratatui and crossterm configuration management must be sound.
 - ratatui and crossterm usability best practices must be observed.
+- early version don't worry about Backwards compatibility
 ------------------------------------------------------------------------
 
 📦 Project Overview
@@ -62,7 +63,7 @@ Important paths:
 - Crate root: `app/` (fileZoom binary crate).
 - Core entrypoints: `app/src/lib.rs`, `app/src/app.rs`, `app/src/main.rs`.
 - App internals: `app/src/app/` (contains `core/`, `types.rs`, `path.rs`, `settings/`).
-- UI code: `app/src/ui/` (menu, modal, panels, dialogs, util).
+- UI code: `app/src/UI/` (menu, modal, panels, dialogs, util).
 - Runner/handlers: `app/src/runner/` (commands, event_loop_main, handlers/).
 - Filesystem ops: `app/src/fs_op/` (copy, mv, stat, permissions, path helpers).
 - Input handling: `app/src/input/` (keyboard, mouse).
