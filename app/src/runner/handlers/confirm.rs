@@ -27,7 +27,7 @@ pub fn handle_confirm(app: &mut App, code: KeyCode) -> anyhow::Result<bool> {
                 match action {
                     Action::DeleteSelected => {
                         if let Err(err) = app.delete_selected() {
-                            let msg = errors::render_io_error(&err, None, None, None);
+                            let msg = errors::render_fsop_error(&err, None, None, None);
                             app.mode = Mode::Message {
                                 title: "Error".to_string(),
                                 content: msg,
@@ -39,7 +39,7 @@ pub fn handle_confirm(app: &mut App, code: KeyCode) -> anyhow::Result<bool> {
                     }
                     Action::CopyTo(p) => {
                         if let Err(err) = app.copy_selected_to(p) {
-                            let msg = errors::render_io_error(&err, None, None, None);
+                            let msg = errors::render_fsop_error(&err, None, None, None);
                             app.mode = Mode::Message {
                                 title: "Error".to_string(),
                                 content: msg,
@@ -51,7 +51,7 @@ pub fn handle_confirm(app: &mut App, code: KeyCode) -> anyhow::Result<bool> {
                     }
                     Action::MoveTo(p) => {
                         if let Err(err) = app.move_selected_to(p) {
-                            let msg = errors::render_io_error(&err, None, None, None);
+                            let msg = errors::render_fsop_error(&err, None, None, None);
                             app.mode = Mode::Message {
                                 title: "Error".to_string(),
                                 content: msg,
@@ -63,7 +63,7 @@ pub fn handle_confirm(app: &mut App, code: KeyCode) -> anyhow::Result<bool> {
                     }
                     Action::RenameTo(name) => {
                         if let Err(err) = app.rename_selected_to(name) {
-                            let msg = errors::render_io_error(&err, None, None, None);
+                            let msg = errors::render_fsop_error(&err, None, None, None);
                             app.mode = Mode::Message {
                                 title: "Error".to_string(),
                                 content: msg,
@@ -75,7 +75,7 @@ pub fn handle_confirm(app: &mut App, code: KeyCode) -> anyhow::Result<bool> {
                     }
                     Action::NewFile(name) => {
                         if let Err(err) = app.new_file(name) {
-                            let msg = errors::render_io_error(&err, None, None, None);
+                            let msg = errors::render_fsop_error(&err, None, None, None);
                             app.mode = Mode::Message {
                                 title: "Error".to_string(),
                                 content: msg,
@@ -87,7 +87,7 @@ pub fn handle_confirm(app: &mut App, code: KeyCode) -> anyhow::Result<bool> {
                     }
                     Action::NewDir(name) => {
                         if let Err(err) = app.new_dir(name) {
-                            let msg = errors::render_io_error(&err, None, None, None);
+                            let msg = errors::render_fsop_error(&err, None, None, None);
                             app.mode = Mode::Message {
                                 title: "Error".to_string(),
                                 content: msg,
@@ -109,7 +109,7 @@ pub fn handle_confirm(app: &mut App, code: KeyCode) -> anyhow::Result<bool> {
             match action {
                 Action::DeleteSelected => {
                     if let Err(err) = app.delete_selected() {
-                        let msg = errors::render_io_error(&err, None, None, None);
+                        let msg = errors::render_fsop_error(&err, None, None, None);
                         app.mode = Mode::Message {
                             title: "Error".to_string(),
                             content: msg,
@@ -121,7 +121,7 @@ pub fn handle_confirm(app: &mut App, code: KeyCode) -> anyhow::Result<bool> {
                 }
                 Action::CopyTo(p) => {
                     if let Err(err) = app.copy_selected_to(p) {
-                        let msg = errors::render_io_error(&err, None, None, None);
+                        let msg = errors::render_fsop_error(&err, None, None, None);
                         app.mode = Mode::Message {
                             title: "Error".to_string(),
                             content: msg,
@@ -133,7 +133,7 @@ pub fn handle_confirm(app: &mut App, code: KeyCode) -> anyhow::Result<bool> {
                 }
                 Action::MoveTo(p) => {
                     if let Err(err) = app.move_selected_to(p) {
-                        let msg = errors::render_io_error(&err, None, None, None);
+                        let msg = errors::render_fsop_error(&err, None, None, None);
                         app.mode = Mode::Message {
                             title: "Error".to_string(),
                             content: msg,
@@ -145,7 +145,7 @@ pub fn handle_confirm(app: &mut App, code: KeyCode) -> anyhow::Result<bool> {
                 }
                 Action::RenameTo(name) => {
                     if let Err(err) = app.rename_selected_to(name) {
-                        let msg = errors::render_io_error(&err, None, None, None);
+                        let msg = errors::render_fsop_error(&err, None, None, None);
                         app.mode = Mode::Message {
                             title: "Error".to_string(),
                             content: msg,
@@ -157,7 +157,7 @@ pub fn handle_confirm(app: &mut App, code: KeyCode) -> anyhow::Result<bool> {
                 }
                 Action::NewFile(name) => {
                     if let Err(err) = app.new_file(name) {
-                        let msg = errors::render_io_error(&err, None, None, None);
+                        let msg = errors::render_fsop_error(&err, None, None, None);
                         app.mode = Mode::Message {
                             title: "Error".to_string(),
                             content: msg,
@@ -169,7 +169,7 @@ pub fn handle_confirm(app: &mut App, code: KeyCode) -> anyhow::Result<bool> {
                 }
                 Action::NewDir(name) => {
                     if let Err(err) = app.new_dir(name) {
-                        let msg = errors::render_io_error(&err, None, None, None);
+                        let msg = errors::render_fsop_error(&err, None, None, None);
                         app.mode = Mode::Message {
                             title: "Error".to_string(),
                             content: msg,

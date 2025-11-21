@@ -148,3 +148,33 @@ pub fn render_io_error(
         }
     }
 }
+
+/// Render a `FsOpError` (the richer filesystem error type) into a user-facing
+/// string. This adapts the existing `render_io_error` function so callers can
+/// pass the new `FsOpError` without changing all call sites at once.
+pub fn render_fsop_error(
+    err: &crate::fs_op::error::FsOpError,
+    path: Option<&str>,
+    src: Option<&str>,
+    dst: Option<&str>,
+) -> String {
+    use crate::fs_op::error::FsOpError;
+
+    match err {
+        FsOpError::Io(e) => render_io_error(e, path, src, dst),
+        FsOpError::Message(msg) => {
+            let tmpl = template_or_default("io_error", "I/O error: {err}");
+            format_template(&tmpl, &[("err", msg)])
+        }
+        FsOpError::PathContext { src: s, dst: d, msg } => {
+            // Prefer move-specific template when available.
+            let tmpl = template_or_default(
+                "unable_to_move",
+                "Unable to move {src} to {dst} ({err})",
+            );
+            let src_s = s.display().to_string();
+            let dst_s = d.display().to_string();
+            format_template(&tmpl, &[("src", &src_s), ("dst", &dst_s), ("err", msg)])
+        }
+    }
+}

@@ -36,7 +36,7 @@ pub fn handle_normal(app: &mut App, code: KeyCode, page_size: usize) -> anyhow::
                 };
                 if panel.selected == 1 && parent_count == 1 {
                     if let Err(err) = app.go_up() {
-                        let msg = errors::render_io_error(&err, None, None, None);
+                        let msg = errors::render_fsop_error(&err, None, None, None);
                         app.mode = Mode::Message {
                             title: "Error".to_string(),
                             content: msg,
@@ -48,7 +48,7 @@ pub fn handle_normal(app: &mut App, code: KeyCode, page_size: usize) -> anyhow::
                 } else if let Some(e) = panel.selected_entry().cloned() {
                     if let Err(err) = app.enter() {
                         let path_s = e.path.display().to_string();
-                        let msg = errors::render_io_error(&err, Some(&path_s), None, None);
+                        let msg = errors::render_fsop_error(&err, Some(&path_s), None, None);
                         app.mode = Mode::Message {
                             title: "Error".to_string(),
                             content: msg,
@@ -62,7 +62,7 @@ pub fn handle_normal(app: &mut App, code: KeyCode, page_size: usize) -> anyhow::
         }
         &KeyCode::Backspace => {
             if let Err(err) = app.go_up() {
-                let msg = errors::render_io_error(&err, None, None, None);
+                let msg = errors::render_fsop_error(&err, None, None, None);
                 app.mode = Mode::Message {
                     title: "Error".to_string(),
                     content: msg,

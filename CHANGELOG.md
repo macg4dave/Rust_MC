@@ -86,3 +86,19 @@
 ### Notes
 
 - Tests run locally and currently pass.
+
+- Filesystem ops: richer errors and UI adapter
+  - Introduce a richer filesystem error type `FsOpError` in
+    `app/src/fs_op/error.rs` (uses `thiserror` for clear `Display` and
+    `From<std::io::Error>` conversions).
+  - Add `thiserror = "1.0"` to `app/Cargo.toml` and derive error impls.
+  - Add `errors::render_fsop_error` adapter which maps `FsOpError` to the
+    existing templated output (delegates to `render_io_error` for IO
+    variants). This lets UI handlers display human-friendly messages
+    without changing all call sites at once.
+  - Refactor `app/src/fs_op/app_ops.rs` to return `Result<_, FsOpError>`
+    for high-level App filesystem operations and tidy internal API.
+  - Update runner handlers (`runner/handlers/*`) to use
+    `render_fsop_error` where appropriate.
+  - Tests updated/added for move/rename fallback behaviour (feature
+    `test-helpers`). All tests pass locally after the change.

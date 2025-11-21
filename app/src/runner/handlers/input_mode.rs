@@ -20,7 +20,7 @@ pub fn handle_input(app: &mut App, code: KeyCode) -> anyhow::Result<bool> {
                     InputKind::Copy => {
                         let dst = PathBuf::from(input);
                         if let Err(err) = app.copy_selected_to(dst) {
-                            let msg = errors::render_io_error(&err, None, None, None);
+                            let msg = errors::render_fsop_error(&err, None, None, None);
                             app.mode = Mode::Message {
                                 title: "Error".to_string(),
                                 content: msg,
@@ -33,7 +33,7 @@ pub fn handle_input(app: &mut App, code: KeyCode) -> anyhow::Result<bool> {
                     InputKind::Move => {
                         let dst = PathBuf::from(input);
                         if let Err(err) = app.move_selected_to(dst) {
-                            let msg = errors::render_io_error(&err, None, None, None);
+                            let msg = errors::render_fsop_error(&err, None, None, None);
                             app.mode = Mode::Message {
                                 title: "Error".to_string(),
                                 content: msg,
@@ -45,7 +45,7 @@ pub fn handle_input(app: &mut App, code: KeyCode) -> anyhow::Result<bool> {
                     }
                     InputKind::Rename => {
                         if let Err(err) = app.rename_selected_to(input) {
-                            let msg = errors::render_io_error(&err, None, None, None);
+                            let msg = errors::render_fsop_error(&err, None, None, None);
                             app.mode = Mode::Message {
                                 title: "Error".to_string(),
                                 content: msg,
@@ -57,7 +57,7 @@ pub fn handle_input(app: &mut App, code: KeyCode) -> anyhow::Result<bool> {
                     }
                     InputKind::NewFile => {
                         if let Err(err) = app.new_file(input) {
-                            let msg = errors::render_io_error(&err, None, None, None);
+                            let msg = errors::render_fsop_error(&err, None, None, None);
                             app.mode = Mode::Message {
                                 title: "Error".to_string(),
                                 content: msg,
@@ -69,7 +69,7 @@ pub fn handle_input(app: &mut App, code: KeyCode) -> anyhow::Result<bool> {
                     }
                     InputKind::NewDir => {
                         if let Err(err) = app.new_dir(input) {
-                            let msg = errors::render_io_error(&err, None, None, None);
+                            let msg = errors::render_fsop_error(&err, None, None, None);
                             app.mode = Mode::Message {
                                 title: "Error".to_string(),
                                 content: msg,
